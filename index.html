@@ -141,6 +141,35 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 .verify-tile.weak{background:#fdf0e2;border-color:var(--warn);color:var(--warn)}
 .verify-tile.miss{background:#fbe9e7;border-color:#e6c9c5;color:var(--bad)}
 
+/* ---------- 手势 / 摄像头 ---------- */
+.gesture-stage{
+  position:relative;background:#0d0f12;border-radius:22px;overflow:hidden;
+  aspect-ratio:4/3;max-height:54vh;width:100%;display:grid;place-items:center;
+}
+.gesture-stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.gesture-stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.gesture-hint{
+  position:absolute;left:12px;bottom:12px;background:rgba(0,0,0,.6);color:#fff;
+  padding:6px 12px;border-radius:10px;font-size:.8em;max-width:80%;
+}
+.gesture-live{
+  position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:7px;
+  background:rgba(0,0,0,.6);color:#fff;padding:5px 11px;border-radius:999px;font-size:.78em;
+}
+.gesture-live::before{content:"";width:9px;height:9px;border-radius:50%;background:#39e08a;box-shadow:0 0 0 0 rgba(57,224,138,.6);animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(57,224,138,.55)}70%{box-shadow:0 0 0 10px rgba(57,224,138,0)}100%{box-shadow:0 0 0 0 rgba(57,224,138,0)}}
+#gesturePip{
+  position:absolute;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));
+  width:148px;height:111px;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.85);
+  z-index:6;background:#000;box-shadow:0 6px 22px rgba(0,0,0,.35);
+}
+#gesturePip[hidden]{display:none}
+#gesturePip video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+#gesturePip canvas{position:absolute;inset:0;width:100%;height:100%}
+#gesturePip .lbl{position:absolute;left:0;right:0;top:0;background:rgba(0,0,0,.55);color:#fff;font-size:11px;text-align:center;padding:2px 0}
+.backend-ok{color:var(--accent);font-weight:700}
+.backend-bad{color:var(--bad);font-weight:700}
+
 /* ---------- 设置 ---------- */
 .set-row{
   display:flex;align-items:center;justify-content:space-between;gap:14px;
@@ -370,6 +399,11 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
     <button data-ans="down" aria-label="向下">↓</button>
     <button data-ans="left" aria-label="向左">←</button>
   </div>
+  <div id="gesturePip" hidden>
+    <video id="pipVideo" autoplay muted playsinline></video>
+    <canvas id="pipCanvas"></canvas>
+    <div class="lbl">手势</div>
+  </div>
   <div id="overlay" hidden></div>
 </section>
 
@@ -424,7 +458,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       <div class="verify-tile" data-word="left">左</div>
       <div class="verify-tile" data-word="right">右</div>
     </div>
-    <div class="card small">
+    <div class="card small" id="verifyTuneCard">
       <div style="font-weight:700">识别不准？点一下正确的方向，把它记进模板</div>
       <div class="muted small" id="verifyModel" style="margin-top:4px">—</div>
       <div class="seg" id="verifySens" style="margin-top:10px">
@@ -434,8 +468,39 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       </div>
     </div>
     <div class="row" style="margin-top:auto">
-      <button class="btn secondary" data-go="enroll">全部重录</button>
+      <button class="btn secondary" id="verifyEnrollBtn" data-go="enroll">全部重录</button>
       <button class="btn" data-action="verify-done">好了</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 手势验证 ==================== -->
+<section class="screen" data-screen="gesture">
+  <div class="wrap">
+    <h2>试一试手势</h2>
+    <div class="card small">
+      <p>站到设备前 <strong>1.5–3 米</strong>，让<strong>整条手臂伸直</strong>指向「上 / 下 / 左 / 右」，指到哪个方向，哪个方块就亮。</p>
+      <p class="muted">每道题都要重新指一次：指住 → 等它亮 → 放下手。一直举着只会算一次。</p>
+      <p class="muted" id="gestureInfo">点下面的按钮打开摄像头</p>
+    </div>
+    <div class="gesture-stage">
+      <video id="gestureVideo" autoplay muted playsinline></video>
+      <canvas id="gestureCanvas"></canvas>
+      <div class="gesture-hint" id="gestureHint">摄像头未开启</div>
+    </div>
+    <div class="verify-grid" id="gestureGrid">
+      <div class="verify-tile" data-word="up">上</div>
+      <div class="verify-tile" data-word="down">下</div>
+      <div class="verify-tile" data-word="left">左</div>
+      <div class="verify-tile" data-word="right">右</div>
+    </div>
+    <div class="card small">
+      <div style="font-weight:700">识别不准？</div>
+      <div class="muted small">保持手臂伸直、动作停 0.5 秒；要照到光。自然把手垂下<strong>不算</strong>「下」，要明确指向斜下方。摄像头画面是镜像的，和你照镜子一样。</div>
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn secondary" data-action="gesture-toggle" id="gestureToggle">开始摄像头</button>
+      <button class="btn" data-go="settings">好了</button>
     </div>
   </div>
 </section>
@@ -453,11 +518,22 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <button class="switch" id="swVoice" role="switch" aria-checked="true"></button>
       </div>
       <div class="set-row">
-        <div><div style="font-weight:700">离线语音（推荐）</div><div class="muted small" id="offlineHint">录过方向词后，说「上 / 下 / 左 / 右」直接作答，不联网</div></div>
+        <div><div style="font-weight:700">Python 语音识别（推荐）</div><div class="muted small" id="backendVoiceHint">连接电脑上的 Python 后端，说「向上 / 向下 / 向左 / 向右」直接作答，不用录模板</div></div>
+        <button class="switch" id="swBackendVoice" role="switch" aria-checked="true"></button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">浏览器离线语音（备用）</div><div class="muted small" id="offlineHint">录过方向词后，说「上 / 下 / 左 / 右」直接作答，不联网</div></div>
         <button class="switch" id="swOfflineVoice" role="switch" aria-checked="false"></button>
       </div>
       <div class="set-row">
-        <div><div style="font-weight:700">录制 / 试音</div><div class="muted small" id="tplStatus">未录制</div></div>
+        <div><div style="font-weight:700">手势作答（Python 视觉）</div><div class="muted small" id="gestureHintSetting">摄像头看到你指的方向就自动作答，适合一体机 / 家属帮忙</div></div>
+        <div class="row" style="flex:none;gap:8px">
+          <button class="btn secondary" data-go="gesture" style="min-height:52px">试一下</button>
+          <button class="switch" id="swGesture" role="switch" aria-checked="false"></button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">录制 / 试音（浏览器离线）</div><div class="muted small" id="tplStatus">未录制</div></div>
         <div class="row" style="flex:none;gap:8px">
           <button class="btn secondary" data-go="enroll" style="min-height:52px">录制</button>
           <button class="btn secondary" data-go="verify" style="min-height:52px">试音</button>
@@ -491,9 +567,26 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <button class="btn danger" data-action="clear-history" style="flex:none;min-height:52px">清除</button>
       </div>
     </div>
+    <div class="card">
+      <div class="set-row" style="align-items:flex-start">
+        <div>
+          <div style="font-weight:700">Python AI 后端</div>
+          <div class="muted small" id="backendStatus">检测中…</div>
+        </div>
+        <button class="btn secondary" data-action="backend-check" style="flex:none;min-height:52px">重新检测</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;padding:4px 4px 10px">
+        <input id="backendUrl" inputmode="url" placeholder="留空 = 当前网址；也可填 http://192.168.1.10:8000"
+               style="flex:1 1 240px;min-height:56px;font-size:.95em;padding:0 14px;border-radius:14px;border:2px solid var(--line);background:#fff">
+        <button class="btn secondary" data-action="backend-save" style="flex:none;min-height:56px">保存并连接</button>
+      </div>
+      <div class="muted small" id="backendHelp">
+        电脑上运行 <code>server/start.bat</code> 后，用同一个 Wi-Fi 的手机访问电脑的 IP 即可。语音和手势都在电脑上算，手机只负责采集。
+      </div>
+    </div>
     <div class="disclaimer">
-      视力筛查程序 v0.1 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
-      本程序不联网、不上传任何数据，结果只存在本机。
+      视力筛查程序 v0.5 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
+      启用 Python 后端时，语音与摄像头画面只在本机/本机服务内存中处理，不上传云端；结果只存在本机。
     </div>
     <div class="row" style="margin-top:auto">
       <button class="btn ghost" data-go="home">返回</button>
@@ -553,8 +646,14 @@ const store = {
   del(k){ try { localStorage.removeItem(k); } catch(e){} },
 };
 
-const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2, offlineVoice: false };
+const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2,
+                           offlineVoice: false, backendVoice: true, gesture: false, backendUrl: '' };
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.get('vs.settings', {}));
+// 允许用 ?backend=https://xxx 临时指定 Python 后端
+if (QS.get('backend')) {
+  settings.backendUrl = QS.get('backend');
+  store.set('vs.settings', settings);
+}
 
 // 校准值：每 1 个 CSS 像素对应多少毫米
 let calib = store.get('vs.calib', null);   // { mmPerCssPx, method, at }
@@ -633,9 +732,11 @@ function setMicBadge(text){
 }
 
 function startVoiceAnswer(){
+  if (settings.backendVoice && BACKEND.ready && BACKEND.asrReady()) { srvStartTestListening(); return; }
   if (settings.offlineVoice) ovStartListening();
 }
 function stopVoiceAnswer(){
+  srvStopListening();
   ovStopListening();
   setMicBadge(null);
 }
@@ -908,15 +1009,45 @@ function ovMicClose() {
 let verifyState = { active: false, lastFeat: null, lastMatch: null };
 
 function openVerify() {
-  if (!ovLoadModel()) { toast('还没有录制方向词，先录一遍'); return; }
+  // 优先用 Python 后端：无需录制模板，识别率也更高
+  if (BACKEND.asrReady()) {
+    verifyState = { active: true, lastFeat: null, lastMatch: null };
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+    ttsBusy = false;
+    showScreen('verify');
+    renderVerifySens();
+    const tune = $('#verifyTuneCard'); if (tune) tune.hidden = true;
+    const enrollBtn = $('#verifyEnrollBtn'); if (enrollBtn) enrollBtn.hidden = true;
+    const info = $('#verifyInfo');
+    if (info) info.textContent = 'AI 语音已连接，说「向上 / 向下 / 向左 / 向右」试试';
+    srvStartListening((m) => {
+      if (!verifyState.active) return;
+      if (m.type === 'speech_start') { if (info) info.textContent = '听到声音，正在识别…'; return; }
+      if (m.type !== 'final') return;
+      const word = (m.dir && m.dir !== 'unsure') ? m.dir : null;
+      $$('.verify-tile').forEach(t => t.classList.remove('hit', 'weak'));
+      const tile = word ? document.querySelector(`.verify-tile[data-word="${word}"]`) : null;
+      if (tile) tile.classList.add('hit');
+      const clean = String(m.text || '').replace(/[。！？，,\.!?]/g, '');
+      if (info) info.textContent = word
+        ? `识别为「${WORD_CN[word]}」${clean ? '（' + clean + '，' + Math.round(m.latencyMs || 0) + 'ms）' : ''}`
+        : `听到「${clean || '—'}」，没对上方向，再说一次`;
+      if (word) beep(880, .05);
+      setTimeout(() => { if (tile) tile.classList.remove('hit'); }, 1500);
+    }).catch(e => { if (info) info.textContent = '连接失败：' + (e.message || e); });
+    return;
+  }
+  if (!ovLoadModel()) { toast('还没有录制方向词，先录一遍；或连接 Python AI 后端'); return; }
   verifyState = { active: true, lastFeat: null, lastMatch: null };
+  const tune = $('#verifyTuneCard'); if (tune) tune.hidden = false;
+  const enrollBtn = $('#verifyEnrollBtn'); if (enrollBtn) enrollBtn.hidden = false;
   // 进验证页先掐掉任何播报，避免 ttsBusy 把识别结果吞掉
   try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
   ttsBusy = false;
   showScreen('verify');
   renderVerifySens();
-  const info = $('#verifyInfo');
-  if (info) info.textContent = '正在听…说一个方向试试';
+  const info2 = $('#verifyInfo');
+  if (info2) info2.textContent = '正在听…说一个方向试试';
   startVerifyListening();
 }
 
@@ -944,9 +1075,11 @@ function paintVerify(m) {
   if (tile) tile.classList.add(m.ok ? 'hit' : 'weak');
   const info = $('#verifyInfo');
   if (info) {
+    const extra = (typeof m.dist === 'number' && typeof m.thr === 'number')
+      ? ` · 距离 ${m.dist.toFixed(2)} / 阈值 ${m.thr.toFixed(2)}` : '';
     info.textContent = m.ok
-      ? `识别为「${WORD_CN[m.word]}」 · 距离 ${m.dist.toFixed(2)} / 阈值 ${m.thr.toFixed(2)}`
-      : `不太确定，最接近「${WORD_CN[m.word]}」 · 距离 ${m.dist.toFixed(2)} / 阈值 ${m.thr.toFixed(2)} —— 可点正确方向补一条`;
+      ? `识别为「${WORD_CN[m.word]}」${m.text ? '（' + m.text + '）' : ''}${extra}`
+      : `不太确定，最接近「${WORD_CN[m.word]}」${extra} —— 可点正确方向补一条`;
   }
   if (m.ok) {
     beep(880, .05);
@@ -986,6 +1119,7 @@ function renderVerifySens() {
 function closeVerify() {
   verifyState.active = false;
   ovStopListening();
+  srvStopListening();
   setMicBadge(null);
 }
 
@@ -1231,16 +1365,352 @@ function recomputeModel(model) {
 }
 
 /* =====================================================================
+   3.7 Python AI 后端：SenseVoice 语音识别 + MediaPipe 手势识别
+   页面既可由 Python 服务直接托管（同源），也可从 GitHub Pages 连到电脑上的服务。
+   ===================================================================== */
+const BACKEND = {
+  ready: false, info: null, checking: false, lastError: '',
+  base(){
+    const s = (settings.backendUrl || '').trim().replace(/\/+$/, '');
+    if (s) return s;
+    if (/^https?:$/.test(location.protocol)) return location.origin;
+    return '';
+  },
+  wsUrl(path){
+    const b = this.base();
+    if (!b) return '';
+    return b.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:') + path;
+  },
+  asrReady(){ return !!(this.ready && this.info && this.info.asr && this.info.asr.ready); },
+  poseReady(){ return !!(this.ready && this.info && this.info.pose && this.info.pose.ready); },
+  async probe(silent){
+    if (this.checking) return this.ready;
+    this.checking = true;
+    renderBackendStatus();
+    const base = this.base();
+    if (!base) { this.ready = false; this.info = null; this.checking = false; renderBackendStatus(); return false; }
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 3000);
+      const r = await fetch(base + '/api/health', { cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(to);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if (!j || !j.ok) throw new Error('健康检查返回异常');
+      this.info = j; this.ready = true; this.lastError = '';
+    } catch (e) {
+      this.ready = false; this.info = null; this.lastError = (e && e.message) || String(e);
+      if (!silent && DEBUG) console.warn('[backend]', e);
+    } finally {
+      this.checking = false;
+      renderBackendStatus();
+    }
+    return this.ready;
+  }
+};
+
+function renderBackendStatus(){
+  const el = $('#backendStatus');
+  if (el) {
+    if (BACKEND.checking) {
+      el.className = 'muted small'; el.textContent = '检测中…';
+    } else if (BACKEND.ready && BACKEND.info) {
+      const a = BACKEND.info.asr || {}, p = BACKEND.info.pose || {};
+      el.className = 'small';
+      el.innerHTML = `<span class="backend-ok">已连接</span> · 语音 ${a.ready ? '✅ ' + (a.model || '') : '❌ 未加载'} · 手势 ${p.ready ? '✅' : '❌ 未加载'} · v${BACKEND.info.version || '?'}`;
+    } else {
+      el.className = 'small';
+      el.innerHTML = `<span class="backend-bad">未连接</span>${BACKEND.lastError ? ' · ' + BACKEND.lastError : ''} —— 语音会退回浏览器离线模式，手势不可用`;
+    }
+  }
+  const input = $('#backendUrl');
+  if (input && document.activeElement !== input) input.value = settings.backendUrl || '';
+  const bvHint = $('#backendVoiceHint');
+  if (bvHint) bvHint.textContent = BACKEND.asrReady()
+    ? '已连接：说「向上 / 向下 / 向左 / 向右」直接作答（SenseVoice，约 0.3 秒）'
+    : '需要电脑运行 server/start.bat；未连接时自动退回浏览器离线语音';
+  const gHint = $('#gestureHintSetting');
+  if (gHint) gHint.textContent = BACKEND.poseReady()
+    ? '摄像头看到你指的方向就自动作答（MediaPipe，约 25ms/帧）'
+    : '需要 Python 后端提供视觉模型；当前未连接';
+}
+
+/* ---------- 实时语音（WebSocket + 16k PCM） ---------- */
+const SRV = { ws: null, ctx: null, stream: null, node: null, active: false, onEvent: null };
+
+async function srvStartListening(onEvent){
+  if (SRV.active) { SRV.onEvent = onEvent; return; }
+  if (!BACKEND.asrReady()) throw new Error('Python 语音后端未连接');
+  const url = BACKEND.wsUrl('/ws/asr');
+  SRV.onEvent = onEvent;
+  const ws = new WebSocket(url);
+  ws.binaryType = 'arraybuffer';
+  await new Promise((resolve, reject) => {
+    const to = setTimeout(() => reject(new Error('连接语音服务超时')), 5000);
+    ws.onopen = () => { clearTimeout(to); resolve(); };
+    ws.onerror = () => { clearTimeout(to); reject(new Error('无法连接语音服务')); };
+  });
+  SRV.ws = ws; SRV.active = true;
+  if (DEBUG) window.__srvEvents = [];
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch(e){ return; }
+    if (DEBUG) (window.__srvEvents = window.__srvEvents || []).push({ t: Date.now(), ...m });
+    if (m.type === 'error') { toast('语音服务：' + (m.message || '错误')); return; }
+    if (SRV.onEvent) SRV.onEvent(m);
+  };
+  ws.onclose = () => { SRV.active = false; setMicBadge(null); };
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+    SRV.stream = stream;
+    let ctx;
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 }); }
+    catch(e) { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+    if (ctx.state === 'suspended') { try { await ctx.resume(); } catch(e){} }
+    SRV.ctx = ctx;
+    const src = ctx.createMediaStreamSource(stream);
+    const node = ctx.createScriptProcessor(2048, 1, 1);
+    const sink = ctx.createGain(); sink.gain.value = 0;
+    node.onaudioprocess = (ev) => {
+      if (!SRV.active || ws.readyState !== WebSocket.OPEN) return;
+      if (ttsBusy) return;                     // 别把设备自己的播报当答案
+      const d = ev.inputBuffer.getChannelData(0);
+      const x = (Math.abs(ctx.sampleRate - 16000) > 80) ? ovResample(d, ctx.sampleRate) : d;
+      const pcm = new Int16Array(x.length);
+      for (let i = 0; i < x.length; i++) {
+        const v = Math.max(-1, Math.min(1, x[i]));
+        pcm[i] = v < 0 ? (v * 0x8000) | 0 : (v * 0x7fff) | 0;
+      }
+      ws.send(pcm.buffer);
+    };
+    src.connect(node); node.connect(sink); sink.connect(ctx.destination);
+    SRV.node = node;
+    setMicBadge('🎤 AI');
+  } catch (e) {
+    srvStopListening();
+    throw e;
+  }
+}
+
+function srvStopListening(){
+  SRV.onEvent = null;
+  try { SRV.node && SRV.node.disconnect(); } catch(e){}
+  try { SRV.stream && SRV.stream.getTracks().forEach(t => t.stop()); } catch(e){}
+  try { SRV.ctx && SRV.ctx.close(); } catch(e){}
+  try { SRV.ws && SRV.ws.close(); } catch(e){}
+  SRV.ws = SRV.ctx = SRV.stream = SRV.node = null;
+  SRV.active = false;
+}
+
+function srvStartTestListening(){
+  srvStartListening((m) => {
+    if (!session || session.aborted || session.paused || !session.resolve) return;
+    if (m.type === 'speech_start') { setMicBadge('🎤 听…'); return; }
+    if (m.type !== 'final' || !m.dir) return;
+    if (m.dir === 'unsure') {
+      setMicBadge('🎤 看不清');
+      setTimeout(() => setMicBadge('🎤 AI'), 700);
+      toast('听到「看不清」，记为猜错');
+      answer('unsure');
+      return;
+    }
+    if (DIRS.indexOf(m.dir) < 0) return;
+    setMicBadge('🎤 ' + WORD_CN[m.dir]);
+    setTimeout(() => setMicBadge('🎤 AI'), 700);
+    answer(m.dir);
+  }).catch(e => toast('AI 语音打不开：' + (e.message || e)));
+}
+
+/* ---------- 实时手势（WebSocket + JPEG 帧） ---------- */
+const GEST = {
+  ws: null, stream: null, video: null, canvas: null, timer: null, active: false,
+  mode: null, onGesture: null, lastDir: null, armed: false, lastAt: 0, off: null,
+};
+
+async function gestureStart(mode, videoEl, canvasEl, onGesture){
+  gestureStop();
+  if (!BACKEND.poseReady()) throw new Error('Python 手势后端未连接');
+  const ws = new WebSocket(BACKEND.wsUrl('/ws/pose'));
+  ws.binaryType = 'arraybuffer';
+  await new Promise((resolve, reject) => {
+    const to = setTimeout(() => reject(new Error('连接手势服务超时')), 5000);
+    ws.onopen = () => { clearTimeout(to); resolve(); };
+    ws.onerror = () => { clearTimeout(to); reject(new Error('无法连接手势服务')); };
+  });
+  GEST.ws = ws;
+  GEST.mode = mode;
+  GEST.video = videoEl;
+  GEST.canvas = canvasEl;
+  GEST.onGesture = onGesture || null;
+
+  ws.onmessage = (ev) => {
+    let m; try { m = JSON.parse(ev.data); } catch(e){ return; }
+    if (m.type === 'error') { toast('手势服务：' + (m.message || '错误')); return; }
+    if (m.type !== 'pose') return;
+    if (DEBUG) (window.__gestLog = window.__gestLog || []).push({ t: Date.now(), g: m.gesture, pose: m.pose, conf: m.confidence });
+    drawPose(m.landmarks);
+    const g = m.gesture || 'none';
+    if (g === 'none') {
+      GEST.armed = true;
+      GEST.lastDir = null;
+      if (mode === 'page') setGestureInfo('没看到明确手势，整条手臂伸出来再试');
+      return;
+    }
+    if (g === GEST.lastDir) return;
+    if (!GEST.armed) return;
+    const now = performance.now();
+    if (now - GEST.lastAt < 500) return;
+    GEST.lastDir = g;
+    GEST.armed = false;
+    GEST.lastAt = now;
+    if (mode === 'page') paintGesture(g);
+    if (GEST.onGesture) {
+      const used = GEST.onGesture(g, m.confidence || 0);
+      if (used === false) { GEST.armed = true; GEST.lastDir = null; }  // 还没轮到作答，重试
+    }
+  };
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false,
+    });
+    GEST.stream = stream;
+    videoEl.srcObject = stream;
+    try { await videoEl.play(); } catch(e){}
+    GEST.active = true;
+    GEST.timer = setInterval(gestureSendFrame, 120);
+    if (mode === 'page') { setGestureInfo('摄像头已开启：指向 上 / 下 / 左 / 右 试试'); setGestureLive(true); }
+  } catch (e) {
+    gestureStop();
+    throw e;
+  }
+}
+
+function gestureSendFrame(){
+  if (!GEST.active || !GEST.ws || GEST.ws.readyState !== WebSocket.OPEN) return;
+  const v = GEST.video;
+  if (!v || !v.videoWidth) return;
+  const c = GEST.off || (GEST.off = document.createElement('canvas'));
+  const w = 320, h = Math.round(w * v.videoHeight / v.videoWidth);
+  c.width = w; c.height = h;
+  c.getContext('2d').drawImage(v, 0, 0, w, h);
+  c.toBlob((b) => {
+    if (!b || !GEST.ws || GEST.ws.readyState !== WebSocket.OPEN) return;
+    b.arrayBuffer().then(buf => { try { GEST.ws.send(buf); } catch(e){} });
+  }, 'image/jpeg', 0.62);
+}
+
+function gestureStop(){
+  GEST.active = false;
+  clearInterval(GEST.timer); GEST.timer = null;
+  try { GEST.ws && GEST.ws.close(); } catch(e){}
+  try { GEST.stream && GEST.stream.getTracks().forEach(t => t.stop()); } catch(e){}
+  if (GEST.video) { try { GEST.video.srcObject = null; } catch(e){} }
+  GEST.ws = GEST.stream = GEST.video = GEST.canvas = null;
+  GEST.mode = null; GEST.onGesture = null;
+  GEST.lastDir = null; GEST.armed = false; GEST.lastAt = 0; GEST.off = null;
+  setGestureLive(false);
+}
+
+function drawPose(lms){
+  const cv = GEST.canvas;
+  if (!cv || !lms || !lms.length) return;
+  const rect = cv.getBoundingClientRect();
+  if (!rect.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(rect.width * dpr);
+  cv.height = Math.round(rect.height * dpr);
+  const ctx2 = cv.getContext('2d');
+  ctx2.clearRect(0, 0, cv.width, cv.height);
+  const pts = lms.map(p => Array.isArray(p) ? [p[0], p[1], p[2] == null ? 1 : p[2]] : [p.x, p.y, p.visibility == null ? 1 : p.visibility]);
+  const pt = (i) => ({ x: (1 - pts[i][0]) * cv.width, y: pts[i][1] * cv.height });
+  const pairs = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[24,26]];
+  ctx2.strokeStyle = 'rgba(57,224,138,.95)'; ctx2.lineWidth = 3 * dpr; ctx2.lineCap = 'round';
+  for (const [a, b] of pairs) {
+    if (pts[a][2] < 0.3 || pts[b][2] < 0.3) continue;
+    const p = pt(a), q = pt(b);
+    ctx2.beginPath(); ctx2.moveTo(p.x, p.y); ctx2.lineTo(q.x, q.y); ctx2.stroke();
+  }
+  ctx2.fillStyle = '#ffd23f';
+  for (const i of [11,12,13,14,15,16,23,24]) {
+    if (pts[i][2] < 0.3) continue;
+    const p = pt(i);
+    ctx2.beginPath(); ctx2.arc(p.x, p.y, 4 * dpr, 0, Math.PI * 2); ctx2.fill();
+  }
+}
+
+let gesturePageOn = false;
+function openGesturePage(){
+  showScreen('gesture');
+  resetGestureTiles();
+  setGestureInfo('点下面的按钮打开摄像头');
+  setGestureLive(false);
+  const btn = $('#gestureToggle');
+  if (btn) btn.textContent = '开始摄像头';
+  gesturePageOn = false;
+}
+
+async function toggleGesturePage(){
+  const btn = $('#gestureToggle');
+  if (gesturePageOn) {
+    gestureStop(); gesturePageOn = false;
+    if (btn) btn.textContent = '开始摄像头';
+    setGestureInfo('已关闭摄像头'); setGestureLive(false);
+    return;
+  }
+  try {
+    await gestureStart('page', $('#gestureVideo'), $('#gestureCanvas'), (g) => paintGesture(g));
+    gesturePageOn = true;
+    if (btn) btn.textContent = '关闭摄像头';
+  } catch (e) {
+    toast('摄像头打不开：' + (e.message || e));
+  }
+}
+
+function paintGesture(g){
+  $$('#gestureGrid .verify-tile').forEach(t => t.classList.remove('hit', 'weak'));
+  const tile = document.querySelector(`#gestureGrid .verify-tile[data-word="${g}"]`);
+  if (tile) tile.classList.add('hit');
+  beep(880, .05);
+  setGestureInfo(`识别为「${WORD_CN[g]}」`);
+  setTimeout(() => { if (tile) tile.classList.remove('hit'); }, 900);
+}
+function resetGestureTiles(){ $$('#gestureGrid .verify-tile').forEach(t => t.classList.remove('hit', 'weak')); }
+function setGestureInfo(text){ const el = $('#gestureInfo'); if (el) el.textContent = text; }
+function setGestureLive(on){ const el = $('#gestureHint'); if (el) el.textContent = on ? '摄像头已开启 · 正在识别手势' : '摄像头未开启'; }
+
+function startTestGesture(){
+  const pip = $('#gesturePip');
+  if (!pip) return;
+  pip.hidden = false;
+  gestureStart('test', $('#pipVideo'), $('#pipCanvas'), (g) => {
+    if (!session || session.aborted || session.paused || !session.resolve) return false;
+    if (DIRS.indexOf(g) < 0) return false;
+    setMicBadge('✋ ' + WORD_CN[g]);
+    setTimeout(() => setMicBadge('✋'), 800);
+    answer(g);
+    return true;
+  }).catch(e => { pip.hidden = true; toast('手势打不开：' + (e.message || e)); });
+}
+
+/* =====================================================================
    4. 屏幕路由
    ===================================================================== */
 const TITLES = { welcome:'视力筛查', home:'视力筛查', calib:'屏幕校准', setup:'准备开始',
-                 test:'正在测试', result:'测试结果', settings:'设置', history:'历史记录' };
+                 test:'正在测试', result:'测试结果', settings:'设置', history:'历史记录',
+                 enroll:'录制方向词', verify:'语音试音', gesture:'手势试音' };
 function showScreen(name){
   $$('.screen').forEach(s => s.classList.toggle('active', s.dataset.screen === name));
   document.title = TITLES[name] || '视力筛查';
   window.scrollTo(0, 0);
   // 离开语音验证页就把麦克风关掉
   if (name !== 'verify' && verifyState && verifyState.active) closeVerify();
+  // 离开手势页 / 测试页就停摄像头
+  if (name !== 'gesture' && gesturePageOn) { gestureStop(); gesturePageOn = false; }
+  if (name !== 'test' && GEST.mode === 'test') { gestureStop(); const pip = $('#gesturePip'); if (pip) pip.hidden = true; }
 }
 
 /* =====================================================================
@@ -1579,6 +2049,13 @@ function renderSetup(type){
   $('#setupTitle').textContent = isFar
     ? `远距离视力测试（${settings.distanceM || 2} 米）`
     : `近距离视力测试（${settings.nearDistance} 厘米）`;
+  const aiWays = [];
+  if (settings.backendVoice && BACKEND.asrReady()) aiWays.push('直接说「向上 / 向下 / 向左 / 向右」（两个字比单字更准）');
+  else if (settings.offlineVoice && ovLoadModel()) aiWays.push('直接说「上 / 下 / 左 / 右」');
+  if (settings.gesture && BACKEND.poseReady()) aiWays.push('用手指一下方向');
+  const aiTip = aiWays.length
+    ? `<p class="muted small">不想碰屏幕？${aiWays.join('，或者')}，设备会自动识别。</p>`
+    : '<p class="muted small">不想碰屏幕？在「设置」里连接 Python AI 后端，可开启语音 / 手势作答。</p>';
   $('#setupBody').innerHTML = isFar ? `
     <h3>需要两个人</h3>
     <ul>
@@ -1603,7 +2080,7 @@ function renderSetup(type){
     <p class="muted small" id="distTip">${distTip(settings.distanceM || 2)}</p>
     ${capWarn}
     <p class="muted small">助手请不要看屏幕上的 E，避免影响结果。</p>
-    <p class="muted small">不想碰屏幕？在「设置」里打开<strong>语音作答</strong>，被测者直接说「上 / 下 / 左 / 右」即可。</p>
+    ${aiTip}
   ` : `
     <h3>一个人就能做</h3>
     <ul>
@@ -1615,7 +2092,7 @@ function renderSetup(type){
     </ul>
     <p class="muted small">测的过程中尽量保持头不动、距离不变。</p>
     ${capWarn}
-    <p class="muted small">不想碰屏幕？在「设置」里打开<strong>语音作答</strong>，直接说「上 / 下 / 左 / 右」即可。</p>
+    ${aiTip}
   `;
 }
 
@@ -1651,7 +2128,8 @@ async function startSession(){
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
-  if (settings.offlineVoice) startVoiceAnswer();
+  if (settings.backendVoice || settings.offlineVoice) startVoiceAnswer();
+  if (settings.gesture) startTestGesture();
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;
@@ -1673,6 +2151,8 @@ function finishSession(){
   $('#answerbar').hidden = true;
   hideOverlay();
   stopVoiceAnswer();
+  gestureStop();
+  const pip = $('#gesturePip'); if (pip) pip.hidden = true;
   releaseWakeLock();
   const type = session.type;
   const results = session.results;
@@ -1769,6 +2249,11 @@ function renderSettings(){
   $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
   const swOF = $('#swOfflineVoice');
   if (swOF) swOF.setAttribute('aria-checked', String(!!settings.offlineVoice));
+  const swBV = $('#swBackendVoice');
+  if (swBV) swBV.setAttribute('aria-checked', String(!!settings.backendVoice));
+  const swG = $('#swGesture');
+  if (swG) swG.setAttribute('aria-checked', String(!!settings.gesture));
+  renderBackendStatus();
   const tplStatus = $('#tplStatus');
   if (tplStatus) {
     const model = ovLoadModel();
@@ -1856,6 +2341,7 @@ document.addEventListener('click', (e) => {
     if (go === 'calib') { openCalib(); return; }
     if (go === 'enroll') { openEnroll(); return; }
     if (go === 'verify') { openVerify(); return; }
+    if (go === 'gesture') { openGesturePage(); return; }
     if (go === 'settings') { renderSettings(); }
     if (go === 'history') { renderHistory(); }
     if (go === 'home') { showScreen('home'); return; }
@@ -1895,6 +2381,23 @@ document.addEventListener('click', (e) => {
         break;
       case 'result-again': beginFlow(session ? session.type : 'near'); break;
       case 'fullscreen': toggleFullscreen(); break;
+      case 'backend-check':
+        BACKEND.probe(false).then(ok => {
+          toast(ok ? 'Python 后端已连接' : ('连接失败：' + (BACKEND.lastError || '未知错误')));
+          renderSettings();
+        });
+        break;
+      case 'backend-save': {
+        const v = ($('#backendUrl')?.value || '').trim().replace(/\/+$/, '');
+        settings.backendUrl = v;
+        store.set('vs.settings', settings);
+        BACKEND.probe(false).then(ok => {
+          toast(ok ? '已保存并连接' : ('连接失败：' + (BACKEND.lastError || '未知错误')));
+          renderSettings();
+        });
+        break;
+      }
+      case 'gesture-toggle': toggleGesturePage(); break;
       case 'clear-history':
         if (confirm('确定要清除全部历史记录吗？')) { store.set('vs.history', []); renderHistory(); }
         break;
@@ -2016,6 +2519,8 @@ $('#btnPause').addEventListener('click', () => {
     hideOverlay();
     $('#answerbar').hidden = true;
     stopVoiceAnswer();
+    gestureStop();
+    const pip = $('#gesturePip'); if (pip) pip.hidden = true;
     releaseWakeLock();
     showScreen('home');
   };
@@ -2044,6 +2549,32 @@ $('#swOfflineVoice')?.addEventListener('click', () => {
   store.set('vs.settings', settings);
   renderSettings();
   if (settings.offlineVoice) toast('离线语音已打开：测试时说「上 / 下 / 左 / 右」');
+});
+$('#swBackendVoice')?.addEventListener('click', () => {
+  settings.backendVoice = !settings.backendVoice;
+  store.set('vs.settings', settings);
+  renderSettings();
+  if (settings.backendVoice) {
+    if (!BACKEND.asrReady()) {
+      BACKEND.probe(false).then(ok => {
+        toast(ok ? 'Python 语音已连接' : '还没连上后端：先运行 server/start.bat，或在下面填地址');
+        renderSettings();
+      });
+    } else {
+      toast('Python 语音识别已打开：说「向上 / 向下 / 向左 / 向右」');
+    }
+  }
+});
+$('#swGesture')?.addEventListener('click', () => {
+  if (!settings.gesture && !BACKEND.poseReady()) {
+    toast('手势需要 Python 后端：先运行 server/start.bat');
+    BACKEND.probe(false).then(() => renderSettings());
+    return;
+  }
+  settings.gesture = !settings.gesture;
+  store.set('vs.settings', settings);
+  renderSettings();
+  toast(settings.gesture ? '手势作答已打开：测试时用手指出方向' : '手势作答已关闭');
 });
 
 /* 验证页：点方块 = 把刚才那条录音记到这个词 */
@@ -2103,12 +2634,17 @@ window.addEventListener('unhandledrejection', (e) => {
 
   showScreen('welcome');
   renderSettings();
+  // 后台探测 Python AI 后端（同源或设置里填的地址）
+  BACKEND.probe(true).then(() => renderSettings());
 
   if (DEBUG) {
     window.__vs = {
       get calib(){ return calib; },
       get settings(){ return settings; },
       get session(){ return session; },
+      get srv(){ return SRV; },
+      get gest(){ return GEST; },
+      get backend(){ return BACKEND; },
       LEVELS, DECIMAL, SNELLEN,
       optotypeHeightMm, maxRenderableIndex,
       go: showScreen, beginFlow,

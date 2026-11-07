@@ -2,5 +2,18 @@ __pycache__/
 *.pdf
 tools/convert_pdf.py
 shots/convert_pdf.py
+tools/cloudflared.exe
 
+# 测试语料与临时素材
 _test/
+_test2/
+_pose_test/
+_probe_*.py
+_probe_*.jpg
+_probe_*.png
+_smoke_*.py
+_extract_model.py
+_test_ws.py
+
+# 模型文件（用 server/download_models.py 下载）
+server/models/
