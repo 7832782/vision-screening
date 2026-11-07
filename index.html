@@ -159,6 +159,10 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   .set-row.wrap-mobile .seg{width:100%}
   .set-row.wrap-mobile .seg button{flex:1;padding:0 10px;font-size:.9em}
 }
+@media (min-width: 481px){
+  .set-row.wrap-mobile > .row{flex-wrap:nowrap}
+  .set-row.wrap-mobile > .row .btn{flex:0 0 auto;min-width:110px}
+}
 
 /* ---------- 测试屏 ---------- */
 .screen[data-screen="test"]{padding:0;overflow:hidden;background:#fff;touch-action:none;user-select:none}
@@ -217,6 +221,38 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 .advice.limit{border-color:#3c5a7a}
 .res-note{color:var(--muted);font-size:.82em;margin-top:8px;line-height:1.45}
 .disclaimer{font-size:.8em;color:var(--muted);background:#efece2;border-radius:14px;padding:14px 16px}
+
+/* ---------- 语音 / 手势作答 ---------- */
+.verify-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.verify-tile{
+  min-height:106px;display:grid;place-items:center;border-radius:22px;
+  background:#fff;border:2px solid var(--line);color:#9aa3af;
+  font-size:clamp(38px,8vw,62px);font-weight:800;transition:transform .12s,background .12s,color .12s;
+}
+.verify-tile.hit{background:var(--accent);border-color:var(--accent);color:#fff;transform:scale(1.03)}
+.verify-tile.weak{background:#fdf0e2;border-color:var(--warn);color:var(--warn)}
+.camera-stage{
+  position:relative;background:#0d0f12;border-radius:22px;overflow:hidden;
+  aspect-ratio:4/3;max-height:52vh;width:100%;display:grid;place-items:center;flex:none;
+}
+.camera-stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.camera-stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.camera-hint{
+  position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;
+  padding:6px 11px;border-radius:10px;font-size:.8em;max-width:84%;
+}
+#gesturePip{
+  position:absolute;right:12px;bottom:calc(112px + env(safe-area-inset-bottom));
+  width:148px;height:111px;border-radius:14px;overflow:hidden;border:2px solid rgba(255,255,255,.85);
+  z-index:6;background:#000;box-shadow:0 6px 22px rgba(0,0,0,.35);
+}
+#gesturePip[hidden]{display:none}
+#gesturePip video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+#gesturePip canvas{position:absolute;inset:0;width:100%;height:100%}
+#gesturePip .lbl{position:absolute;left:0;right:0;top:0;background:rgba(0,0,0,.55);color:#fff;font-size:11px;text-align:center;padding:2px 0}
+.ai-status{font-size:.85em;color:var(--muted);margin-top:6px}
+.ai-status.ok{color:var(--accent)}
+.ai-status.bad{color:var(--bad)}
 
 /* ---------- 历史 ---------- */
 .hist-item{display:flex;justify-content:space-between;gap:12px;padding:14px 4px;border-bottom:1px solid var(--line);font-size:.94em}
@@ -374,7 +410,59 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
     <button data-ans="down" aria-label="向下">↓</button>
     <button data-ans="left" aria-label="向左">←</button>
   </div>
+  <div id="gesturePip" hidden>
+    <video id="pipVideo" autoplay muted playsinline></video>
+    <canvas id="pipCanvas"></canvas>
+    <div class="lbl">手势</div>
+  </div>
   <div id="overlay" hidden></div>
+</section>
+
+<!-- ==================== 语音试音 ==================== -->
+<section class="screen" data-screen="voiceTest">
+  <div class="wrap">
+    <h2>试一试语音</h2>
+    <div class="card small">
+      <p>说「上 / 下 / 左 / 右」或「看不清」，<strong>说到哪个方向，哪个方块就亮</strong>。</p>
+      <p class="muted" id="voiceTestInfo">首次启用需要加载约 44 MB 离线模型</p>
+    </div>
+    <div class="verify-grid" id="voiceTestGrid">
+      <div class="verify-tile" data-word="up">上</div>
+      <div class="verify-tile" data-word="down">下</div>
+      <div class="verify-tile" data-word="left">左</div>
+      <div class="verify-tile" data-word="right">右</div>
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn secondary" data-action="voice-test-toggle" id="voiceTestBtn">开始听</button>
+      <button class="btn" data-go="settings">好了</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 手势试音 ==================== -->
+<section class="screen" data-screen="gestureTest">
+  <div class="wrap">
+    <h2>试一试手势</h2>
+    <div class="card small">
+      <p>站到设备前 1.5–3 米，先把手放下，再用<strong>食指</strong>指向「上 / 下 / 左 / 右」，保持约半秒。</p>
+      <p class="muted" id="gestureTestInfo">首次启用需要加载约 17 MB 离线模型</p>
+    </div>
+    <div class="camera-stage">
+      <video id="gestureTestVideo" autoplay muted playsinline></video>
+      <canvas id="gestureTestCanvas"></canvas>
+      <div class="camera-hint" id="gestureTestHint">摄像头未开启</div>
+    </div>
+    <div class="verify-grid" id="gestureTestGrid">
+      <div class="verify-tile" data-word="up">上</div>
+      <div class="verify-tile" data-word="down">下</div>
+      <div class="verify-tile" data-word="left">左</div>
+      <div class="verify-tile" data-word="right">右</div>
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn secondary" data-action="gesture-test-toggle" id="gestureTestBtn">开始摄像头</button>
+      <button class="btn" data-go="settings">好了</button>
+    </div>
+  </div>
 </section>
 
 <!-- ==================== 结果 ==================== -->
@@ -417,6 +505,20 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <div><div style="font-weight:700">语音提示</div><div class="muted small">用语音念出每一步的操作</div></div>
         <button class="switch" id="swVoice" role="switch" aria-checked="true"></button>
       </div>
+      <div class="set-row wrap-mobile">
+        <div><div style="font-weight:700">语音作答（离线）</div><div class="muted small" id="voiceAnswerHint">说「上 / 下 / 左 / 右」直接作答，不联网；首次加载约 44 MB</div></div>
+        <div class="row" style="flex:none;gap:8px">
+          <button class="btn secondary" data-go="voiceTest" style="min-height:52px">试一下</button>
+          <button class="switch" id="swVoiceAnswer" role="switch" aria-checked="false"></button>
+        </div>
+      </div>
+      <div class="set-row wrap-mobile">
+        <div><div style="font-weight:700">手势作答（离线）</div><div class="muted small" id="gestureAnswerHint">食指指方向作答，不联网；首次加载约 17 MB</div></div>
+        <div class="row" style="flex:none;gap:8px">
+          <button class="btn secondary" data-go="gestureTest" style="min-height:52px">试一下</button>
+          <button class="switch" id="swGestureAnswer" role="switch" aria-checked="false"></button>
+        </div>
+      </div>
       <div class="set-row">
         <div><div style="font-weight:700">按键音</div><div class="muted small">每次作答给一个轻提示音</div></div>
         <button class="switch" id="swBeep" role="switch" aria-checked="true"></button>
@@ -446,8 +548,8 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       </div>
     </div>
     <div class="disclaimer">
-      视力筛查程序 v0.6 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
-      作答只使用屏幕按键或滑动手势，不采集麦克风与摄像头；结果只存在本机。
+      视力筛查程序 v0.8 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
+      语音/手势仅在你开启时加载本地模型；数据不离开本机。
     </div>
     <div class="row" style="margin-top:auto">
       <button class="btn ghost" data-go="home">返回</button>
@@ -466,6 +568,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   </div>
 </section>
 
+<script src="voice/engine.js"></script>
 <script>
 'use strict';
 /* =====================================================================
@@ -507,7 +610,8 @@ const store = {
   del(k){ try { localStorage.removeItem(k); } catch(e){} },
 };
 
-const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2 };
+const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2,
+                           voiceAnswer: false, gestureAnswer: false };
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.get('vs.settings', {}));
 
 // 校准值：每 1 个 CSS 像素对应多少毫米
@@ -524,6 +628,12 @@ function devPerMm(){
    3. 语音 / 提示音
    ===================================================================== */
 let audioCtx = null;
+let ttsBusy = false;
+let ttsTimer = null;
+function setTtsBusy(v) {
+  ttsBusy = !!v;
+  window.__ttsBusy = ttsBusy;
+}
 function beep(freq = 880, dur = 0.06, gain = 0.05){
   if (!settings.beep) return;
   try {
@@ -546,8 +656,14 @@ function speak(text){
     const vs = window.speechSynthesis.getVoices() || [];
     const zh = vs.find(v => /zh|Chinese/i.test(v.lang));
     if (zh) u.voice = zh;
+    const clear = () => { setTtsBusy(false); };
+    setTtsBusy(true);
+    u.onend = clear;
+    u.onerror = clear;
     window.speechSynthesis.speak(u);
-  } catch(e) {}
+    clearTimeout(ttsTimer);
+    ttsTimer = setTimeout(clear, 5000);
+  } catch(e) { setTtsBusy(false); }
 }
 if ('speechSynthesis' in window) {
   // 部分浏览器需要预热一下 voice 列表
@@ -558,12 +674,182 @@ if ('speechSynthesis' in window) {
    4. 屏幕路由
    ===================================================================== */
 const TITLES = { welcome:'视力筛查', home:'视力筛查', calib:'屏幕校准', setup:'准备开始',
-                 test:'正在测试', result:'测试结果', settings:'设置', history:'历史记录' };
+                 test:'正在测试', result:'测试结果', settings:'设置', history:'历史记录',
+                 voiceTest:'语音试音', gestureTest:'手势试音' };
 function showScreen(name){
   $$('.screen').forEach(s => s.classList.toggle('active', s.dataset.screen === name));
   document.title = TITLES[name] || '视力筛查';
   window.scrollTo(0, 0);
+  if (name !== 'voiceTest' && name !== 'test') stopVoiceAnswer();
+  if (name !== 'gestureTest' && name !== 'test') stopGestureAnswer();
 }
+
+function toast(msg, ms = 2800) {
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+/* =====================================================================
+   3.5 语音 / 手势作答（浏览器离线模块）
+   ===================================================================== */
+let voiceListener = null;
+let gestureSession = null;
+let voiceTestRunning = false;
+let gestureTestRunning = false;
+
+function voiceStatus(text, ok) {
+  const el = $('#voiceTestInfo');
+  if (el) { el.textContent = text; el.className = 'ai-status ' + (ok ? 'ok' : ''); }
+}
+function gestureStatus(text, ok) {
+  const el = $('#gestureTestInfo');
+  if (el) { el.textContent = text; el.className = 'ai-status ' + (ok ? 'ok' : ''); }
+  const hint = $('#gestureTestHint');
+  if (hint) hint.textContent = text;
+}
+
+function paintAnswerTile(selector, word, weak) {
+  const box = $(selector);
+  if (!box) return;
+  $$(selector + ' .verify-tile').forEach(t => t.classList.remove('hit', 'weak'));
+  const tile = box.querySelector(`.verify-tile[data-word="${word}"]`);
+  if (tile) tile.classList.add(weak ? 'weak' : 'hit');
+  setTimeout(() => { if (tile) tile.classList.remove('hit', 'weak'); }, 1200);
+}
+function markGestureTile(selector, word) {
+  const box = $(selector);
+  if (!box) return;
+  $$(selector + ' .verify-tile').forEach(t => t.classList.toggle('hit', !!word && t.dataset.word === word));
+}
+
+async function startVoiceListening(onResult, onStatus) {
+  if (voiceListener) return voiceListener;
+  if (!window.VoiceEngine) throw new Error('语音模块未加载');
+  voiceListener = window.VoiceEngine.createListener({ onResult, onStatus });
+  await voiceListener.start();
+  return voiceListener;
+}
+function stopVoiceListening() {
+  if (voiceListener) { try { voiceListener.stop(); } catch (e) {} voiceListener = null; }
+  voiceTestRunning = false;
+  const btn = $('#voiceTestBtn');
+  if (btn) btn.textContent = '开始听';
+}
+
+function handleTestVoice(r) {
+  if (!session || !session.resolve || session.paused) return;
+  if (!r || !r.dir) { if (r && r.text) toast('没听清：' + r.text); return; }
+  if (r.dir === 'unsure') { toast('听到「看不清」，记为猜错'); answer('unsure'); return; }
+  if (DIRS.indexOf(r.dir) >= 0) answer(r.dir);
+}
+
+async function startVoiceAnswer() {
+  if (!settings.voiceAnswer || voiceListener) return;
+  try {
+    await startVoiceListening(handleTestVoice, () => {});
+  } catch (e) {
+    toast('语音作答打不开：' + (e.message || e));
+  }
+}
+function stopVoiceAnswer() {
+  stopVoiceListening();
+}
+
+async function startGestureSession(video, canvas, onAnswer, onStatus) {
+  if (gestureSession) return gestureSession;
+  await ensureGestureEngine();
+  gestureSession = await window.GestureEngine.start(video, canvas, onAnswer, onStatus);
+  return gestureSession;
+}
+async function ensureGestureEngine() {
+  if (window.GestureEngine) return;
+  await new Promise((resolve) => window.addEventListener('vs-gesture-engine-ready', resolve, { once: true }));
+  if (!window.GestureEngine) throw new Error('手势模块未加载');
+}
+function stopGestureAnswer() {
+  if (gestureSession) { try { gestureSession.stop(); } catch (e) {} gestureSession = null; }
+  gestureTestRunning = false;
+  const btn = $('#gestureTestBtn');
+  if (btn) btn.textContent = '开始摄像头';
+  const pip = $('#gesturePip'); if (pip) pip.hidden = true;
+}
+
+async function startGestureTestAnswer() {
+  if (!settings.gestureAnswer || gestureSession) return;
+  const pip = $('#gesturePip');
+  if (!pip) return;
+  pip.hidden = false;
+  try {
+    await startGestureSession($('#pipVideo'), $('#pipCanvas'), (dir, conf) => {
+      if (!session || !session.resolve || session.paused) return;
+      if (DIRS.indexOf(dir) < 0) return;
+      answer(dir);
+    }, (best, ev) => {
+      if (DEBUG) window.__gestureTestDebug = { best, ev, at: Date.now() };
+      if (best && best.gesture && best.gesture !== 'none' && DIRS.indexOf(best.gesture) >= 0) {
+        // 仅用于调试/状态，不直接作答（由 gate 的 onAnswer 触发）
+      }
+    });
+  } catch (e) {
+    pip.hidden = true;
+    toast('手势作答打不开：' + (e.message || e));
+  }
+}
+
+async function toggleVoiceTest() {
+  if (voiceTestRunning) { stopVoiceListening(); voiceStatus('已停止', false); return; }
+  try {
+    voiceStatus('正在加载离线模型（约 44 MB）…', false);
+    await startVoiceListening((r) => {
+      if (!r) return;
+      if (r.dir === 'unsure') { voiceStatus('听到「看不清」', false); return; }
+      if (r.dir) {
+        paintAnswerTile('#voiceTestGrid', r.dir, false);
+        voiceStatus(`识别为「${CN_DIR[r.dir]}」（${r.text || ''}，${r.ms || 0}ms）`, true);
+      } else {
+        voiceStatus(`没听清：${r.text || '—'}`, false);
+      }
+    }, (s) => voiceStatus(s, /就绪|正在听/.test(s)));
+    voiceTestRunning = true;
+    $('#voiceTestBtn').textContent = '停止';
+    voiceStatus('正在听…说「上 / 下 / 左 / 右」', true);
+  } catch (e) {
+    voiceStatus('语音打不开：' + (e.message || e), false);
+  }
+}
+
+async function toggleGestureTest() {
+  if (gestureTestRunning) { stopGestureAnswer(); gestureStatus('已停止', false); $('#gestureTestHint').textContent = '摄像头未开启'; return; }
+  const video = $('#gestureTestVideo');
+  const canvas = $('#gestureTestCanvas');
+  try {
+    await startGestureSession(video, canvas, (dir) => {
+      if (DIRS.indexOf(dir) < 0) return;
+      paintAnswerTile('#gestureTestGrid', dir, false);
+      gestureStatus('识别为「' + CN_DIR[dir] + '」', true);
+    }, (best, ev) => {
+      if (!best) return;
+      const word = best.gesture && best.gesture !== 'none' ? CN_DIR[best.gesture] : '—';
+      markGestureTile('#gestureTestGrid', best.gesture === 'none' ? null : best.gesture);
+      gestureStatus(`当前：${word} · 置信度 ${(best.confidence || 0).toFixed(2)} · ${ev && ev.armed ? '可作答' : '等抬手'}`, best.gesture !== 'none');
+    });
+    gestureTestRunning = true;
+    $('#gestureTestBtn').textContent = '停止摄像头';
+    $('#gestureTestHint').textContent = '摄像头已开启';
+  } catch (e) {
+    gestureStatus('摄像头打不开：' + (e.message || e), false);
+  }
+}
+
+const CN_DIR = { up:'上', down:'下', left:'左', right:'右' };
 
 /* =====================================================================
    5. 校准：用真实标准物品量屏幕（身份证 / 硬币 / A4 / A5 / A6）
@@ -1013,9 +1299,13 @@ async function startSession(){
     aborted: false,
     cap: maxRenderableIndex(distM),
   };
+  stopVoiceAnswer();
+  stopGestureAnswer();
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
+  if (settings.voiceAnswer) startVoiceAnswer();
+  if (settings.gestureAnswer) startGestureTestAnswer();
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;
@@ -1036,6 +1326,8 @@ async function startSession(){
 function finishSession(){
   $('#answerbar').hidden = true;
   hideOverlay();
+  stopVoiceAnswer();
+  stopGestureAnswer();
   releaseWakeLock();
   const type = session.type;
   const results = session.results;
@@ -1149,6 +1441,18 @@ function renderResult(type, results){
 function renderSettings(){
   $('#swVoice').setAttribute('aria-checked', String(!!settings.voice));
   $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
+  const swVA = $('#swVoiceAnswer');
+  if (swVA) swVA.setAttribute('aria-checked', String(!!settings.voiceAnswer));
+  const swGA = $('#swGestureAnswer');
+  if (swGA) swGA.setAttribute('aria-checked', String(!!settings.gestureAnswer));
+  const vaHint = $('#voiceAnswerHint');
+  if (vaHint) vaHint.textContent = settings.voiceAnswer
+    ? '已开启：测试时说「上 / 下 / 左 / 右」或「看不清」'
+    : '说「上 / 下 / 左 / 右」直接作答，不联网；首次加载约 44 MB';
+  const gaHint = $('#gestureAnswerHint');
+  if (gaHint) gaHint.textContent = settings.gestureAnswer
+    ? '已开启：先放下手，再用食指指方向'
+    : '食指指方向作答，不联网；首次加载约 17 MB';
   $$('#segNearDist button').forEach(b => {
     b.setAttribute('aria-pressed', String(Number(b.dataset.near) === settings.nearDistance));
   });
@@ -1224,6 +1528,8 @@ document.addEventListener('click', (e) => {
     const go = t.dataset.go;
     if (go === 'home') { pendingStart = null; }
     if (go === 'calib') { openCalib(); return; }
+    if (go === 'voiceTest') { showScreen('voiceTest'); voiceStatus('点「开始听」加载离线语音模型', false); return; }
+    if (go === 'gestureTest') { showScreen('gestureTest'); gestureStatus('点「开始摄像头」加载手势模型', false); return; }
     if (go === 'settings') { renderSettings(); }
     if (go === 'history') { renderHistory(); }
     if (go === 'home') { showScreen('home'); return; }
@@ -1256,6 +1562,8 @@ document.addEventListener('click', (e) => {
         break;
       }
       case 'setup-start': startSession(); break;
+      case 'voice-test-toggle': toggleVoiceTest(); break;
+      case 'gesture-test-toggle': toggleGestureTest(); break;
       case 'result-again': beginFlow(session ? session.type : 'near'); break;
       case 'fullscreen': toggleFullscreen(); break;
       case 'clear-history':
@@ -1397,6 +1705,41 @@ $('#swBeep').addEventListener('click', () => {
   $('#swBeep').setAttribute('aria-checked', String(settings.beep));
   if (settings.beep) beep(880, .08);
 });
+$('#swVoiceAnswer')?.addEventListener('click', async () => {
+  if (!settings.voiceAnswer) {
+    try {
+      const hint = $('#voiceAnswerHint');
+      await window.VoiceEngine.load((s) => { if (hint) hint.textContent = s; });
+    } catch (e) {
+      toast('语音模型加载失败：' + (e.message || e));
+      return;
+    }
+  } else {
+    stopVoiceAnswer();
+  }
+  settings.voiceAnswer = !settings.voiceAnswer;
+  store.set('vs.settings', settings);
+  renderSettings();
+  toast(settings.voiceAnswer ? '语音作答已开启：测试时说「上 / 下 / 左 / 右」' : '语音作答已关闭');
+});
+$('#swGestureAnswer')?.addEventListener('click', async () => {
+  if (!settings.gestureAnswer) {
+    try {
+      await ensureGestureEngine();
+      const hint = $('#gestureAnswerHint');
+      await window.GestureEngine.load((s) => { if (hint) hint.textContent = s; });
+    } catch (e) {
+      toast('手势模型加载失败：' + (e.message || e));
+      return;
+    }
+  } else {
+    stopGestureAnswer();
+  }
+  settings.gestureAnswer = !settings.gestureAnswer;
+  store.set('vs.settings', settings);
+  renderSettings();
+  toast(settings.gestureAnswer ? '手势作答已开启：测试时先放下手，再用食指指方向' : '手势作答已关闭');
+});
 $('#segNearDist').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-near]');
   if (!b) return;
@@ -1435,6 +1778,11 @@ window.addEventListener('unhandledrejection', (e) => {
     };
   }
 })();
+</script>
+<script type="module">
+  import * as GestureEngine from './gesture/engine.js';
+  window.GestureEngine = GestureEngine;
+  window.dispatchEvent(new Event('vs-gesture-engine-ready'));
 </script>
 </body>
 </html>
