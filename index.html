@@ -1442,13 +1442,14 @@ function renderBackendStatus(){
 }
 
 /* ---------- 实时语音（WebSocket + 16k PCM） ---------- */
-const SRV = { ws: null, ctx: null, stream: null, node: null, active: false, onEvent: null };
+const SRV = { ws: null, ctx: null, stream: null, node: null, active: false, onEvent: null, muteUntil: 0 };
 
 async function srvStartListening(onEvent){
   if (SRV.active) { SRV.onEvent = onEvent; return; }
   if (!BACKEND.asrReady()) throw new Error('Python 语音后端未连接');
   const url = BACKEND.wsUrl('/ws/asr');
   SRV.onEvent = onEvent;
+  SRV.muteUntil = 0;
   const ws = new WebSocket(url);
   ws.binaryType = 'arraybuffer';
   await new Promise((resolve, reject) => {
@@ -1462,6 +1463,7 @@ async function srvStartListening(onEvent){
     let m; try { m = JSON.parse(ev.data); } catch(e){ return; }
     if (DEBUG) (window.__srvEvents = window.__srvEvents || []).push({ t: Date.now(), ...m });
     if (m.type === 'error') { toast('语音服务：' + (m.message || '错误')); return; }
+    if (m.type === 'final') SRV.muteUntil = performance.now() + 500;  // 给 VAD 收尾，避免下一句粘连
     if (SRV.onEvent) SRV.onEvent(m);
   };
   ws.onclose = () => { SRV.active = false; setMicBadge(null); };
@@ -1481,7 +1483,7 @@ async function srvStartListening(onEvent){
     const sink = ctx.createGain(); sink.gain.value = 0;
     node.onaudioprocess = (ev) => {
       if (!SRV.active || ws.readyState !== WebSocket.OPEN) return;
-      if (ttsBusy) return;                     // 别把设备自己的播报当答案
+      if (ttsBusy || performance.now() < SRV.muteUntil) return;   // 别把设备播报/上一句尾音当答案
       const d = ev.inputBuffer.getChannelData(0);
       const x = (Math.abs(ctx.sampleRate - 16000) > 80) ? ovResample(d, ctx.sampleRate) : d;
       const pcm = new Int16Array(x.length);

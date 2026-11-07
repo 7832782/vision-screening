@@ -95,6 +95,9 @@ python server/test_asr.py     # 21/21 硬性检查 PASS
 python server/test_pose.py    # 36/36 ALL PASS
 ```
 
+> 测试用的语音语料（`_test/`、`_test2/`）和手势图片（`_pose_test/`）是本地生成、未入库；
+> 运行前请先用 `tools/make_voice_samples.ps1` 等脚本准备，否则对应测试会报错。
+
 ## 还没做（按优先级）
 
 1. **摄像头实时测距**：用前置摄像头 + 人脸尺寸估计距离，随距离自动缩放视标（免去量距离）
