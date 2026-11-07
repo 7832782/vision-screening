@@ -1304,8 +1304,10 @@ async function startSession(){
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
-  if (settings.voiceAnswer) startVoiceAnswer();
-  if (settings.gestureAnswer) startGestureTestAnswer();
+  if (SIM == null) {
+    if (settings.voiceAnswer) startVoiceAnswer();
+    if (settings.gestureAnswer) startGestureTestAnswer();
+  }
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;
