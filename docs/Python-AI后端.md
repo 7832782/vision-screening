@@ -139,6 +139,15 @@ tools\cloudflared.exe tunnel --url http://127.0.0.1:8000
 https://7832782.github.io/vision-screening/?backend=https://xxxx.trycloudflare.com
 ```
 
+### 部署形态（重要）
+
+- **手机 / Android 一体机**：只跑浏览器，负责显示视标、采集麦克风/摄像头帧。
+- **Python 后端**：跑在同一 Wi-Fi 下的 Windows/Linux 电脑上（诊所电脑、笔记本、迷你主机都行）。
+  Android 一体机本身不运行 Python；如果现场没有电脑，只能用浏览器离线语音（v0.4 的 DTW fallback），
+  手势不可用。
+- 正式部署：后端放固定电脑/服务器 + 固定 HTTPS 域名，前端可以继续用 GitHub Pages 或直接由后端托管。
+- 隐私：音频和视频帧只在内存中处理；但如果走公网隧道，帧会经过 Cloudflare 转发，正式医疗场景建议局域网内直连 HTTPS。
+
 ## 7. 前端行为
 
 - 打开页面时自动请求 `/api/health`；连接成功则显示「已连接 · 语音 ✅ · 手势 ✅」。

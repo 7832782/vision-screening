@@ -14,6 +14,12 @@
 > 要用「Python 高精度语音」和「手势作答」，需要在本机运行 `server/start.bat`，再用 HTTPS 隧道访问，详见
 > [`docs/Python-AI后端.md`](docs/Python-AI后端.md)。
 
+### 界面预览
+
+| 语音试音（HTTPS） | 手势试音（骨架叠加） | 近距测试结果 |
+|---|---|---|
+| ![](shots/20-voice-verify-https.png) | ![](shots/21-gesture-verify.png) | ![](shots/23-near-result.png) |
+
 ---
 
 ## 现在有什么
@@ -49,6 +55,9 @@ python app.py                             # 或双击 start.bat
 - 手机要开麦克风/摄像头必须是 HTTPS：用 `tools/cloudflared.exe tunnel --url http://127.0.0.1:8000`
   生成 `https://xxx.trycloudflare.com` 后访问（详见 `docs/Python-AI后端.md`）
 
+> 部署形态：手机 / Android 一体机只跑浏览器；Python 后端跑在同一 Wi-Fi 下的电脑上。
+> 一体机本身不运行 Python；现场没有电脑时，只能使用浏览器离线语音（手势不可用）。
+
 ## 已实现
 
 - 远距（2 米标准，可切 1.5 / 1 米，或**自定义 1–5 米任意距离**）与近距（40 厘米，可切 33/45）两套测试
@@ -77,7 +86,7 @@ python app.py                             # 或双击 start.bat
 | 语音抗噪 | 20/15/10 dB 白噪声：85.4% / 79.2% / 79.2% |
 | 手势测试 | `server/test_pose.py` 36/36 PASS |
 | 手势延迟 | p50 20–22 ms / p95 21–25 ms（含 JPEG 解码 + 推理） |
-| 端到端浏览器测试 | 假麦克风喂 4 个方向词，语音试音页全部正确；48 道近距测试 24 题全部由语音答对并正常出结果 |
+| 端到端浏览器测试 | 假麦克风喂 4 个方向词，语音试音页全部正确；24 题近距测试全部由语音答对并正常出结果 |
 
 复现：
 

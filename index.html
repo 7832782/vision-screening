@@ -144,7 +144,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 /* ---------- 手势 / 摄像头 ---------- */
 .gesture-stage{
   position:relative;background:#0d0f12;border-radius:22px;overflow:hidden;
-  aspect-ratio:4/3;max-height:54vh;width:100%;display:grid;place-items:center;
+  aspect-ratio:4/3;max-height:54vh;width:100%;display:grid;place-items:center;flex:none;
 }
 .gesture-stage video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
 .gesture-stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
@@ -192,6 +192,8 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 @media (max-width: 480px){
   .set-row.wrap-mobile{flex-wrap:wrap}
   .set-row.wrap-mobile > div:first-child{flex:1 1 100%}
+  .set-row.wrap-mobile > .row{width:100%;justify-content:flex-start}
+  .set-row.wrap-mobile > .row .btn{flex:1 1 0;min-width:0}
   .set-row.wrap-mobile .seg{width:100%}
   .set-row.wrap-mobile .seg button{flex:1;padding:0 10px;font-size:.9em}
 }
@@ -525,14 +527,14 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <div><div style="font-weight:700">浏览器离线语音（备用）</div><div class="muted small" id="offlineHint">录过方向词后，说「上 / 下 / 左 / 右」直接作答，不联网</div></div>
         <button class="switch" id="swOfflineVoice" role="switch" aria-checked="false"></button>
       </div>
-      <div class="set-row">
+      <div class="set-row wrap-mobile">
         <div><div style="font-weight:700">手势作答（Python 视觉）</div><div class="muted small" id="gestureHintSetting">摄像头看到你指的方向就自动作答，适合一体机 / 家属帮忙</div></div>
         <div class="row" style="flex:none;gap:8px">
           <button class="btn secondary" data-go="gesture" style="min-height:52px">试一下</button>
           <button class="switch" id="swGesture" role="switch" aria-checked="false"></button>
         </div>
       </div>
-      <div class="set-row">
+      <div class="set-row wrap-mobile">
         <div><div style="font-weight:700">录制 / 试音（浏览器离线）</div><div class="muted small" id="tplStatus">未录制</div></div>
         <div class="row" style="flex:none;gap:8px">
           <button class="btn secondary" data-go="enroll" style="min-height:52px">录制</button>
@@ -1394,12 +1396,16 @@ const BACKEND = {
       const to = setTimeout(() => ctrl.abort(), 3000);
       const r = await fetch(base + '/api/health', { cache: 'no-store', signal: ctrl.signal });
       clearTimeout(to);
+      if (r.status === 404) throw new Error('这个网址没有 Python 服务');
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const j = await r.json();
       if (!j || !j.ok) throw new Error('健康检查返回异常');
       this.info = j; this.ready = true; this.lastError = '';
     } catch (e) {
-      this.ready = false; this.info = null; this.lastError = (e && e.message) || String(e);
+      this.ready = false; this.info = null;
+      this.lastError = (location.hostname.endsWith('github.io') && !settings.backendUrl)
+        ? '当前是静态页面，需在下面填 Python 后端地址'
+        : ((e && e.message) || String(e));
       if (!silent && DEBUG) console.warn('[backend]', e);
     } finally {
       this.checking = false;
@@ -1446,7 +1452,7 @@ async function srvStartListening(onEvent){
   const ws = new WebSocket(url);
   ws.binaryType = 'arraybuffer';
   await new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error('连接语音服务超时')), 5000);
+    const to = setTimeout(() => reject(new Error('连接语音服务超时')), 10000);
     ws.onopen = () => { clearTimeout(to); resolve(); };
     ws.onerror = () => { clearTimeout(to); reject(new Error('无法连接语音服务')); };
   });
@@ -1535,7 +1541,7 @@ async function gestureStart(mode, videoEl, canvasEl, onGesture){
   const ws = new WebSocket(BACKEND.wsUrl('/ws/pose'));
   ws.binaryType = 'arraybuffer';
   await new Promise((resolve, reject) => {
-    const to = setTimeout(() => reject(new Error('连接手势服务超时')), 5000);
+    const to = setTimeout(() => reject(new Error('连接手势服务超时')), 10000);
     ws.onopen = () => { clearTimeout(to); resolve(); };
     ws.onerror = () => { clearTimeout(to); reject(new Error('无法连接手势服务')); };
   });
@@ -1593,12 +1599,14 @@ function gestureSendFrame(){
   if (!GEST.active || !GEST.ws || GEST.ws.readyState !== WebSocket.OPEN) return;
   const v = GEST.video;
   if (!v || !v.videoWidth) return;
+  if (DEBUG) window.__gestSent = (window.__gestSent || 0) + 1;
   const c = GEST.off || (GEST.off = document.createElement('canvas'));
   const w = 320, h = Math.round(w * v.videoHeight / v.videoWidth);
   c.width = w; c.height = h;
   c.getContext('2d').drawImage(v, 0, 0, w, h);
   c.toBlob((b) => {
     if (!b || !GEST.ws || GEST.ws.readyState !== WebSocket.OPEN) return;
+    if (DEBUG) window.__gestBlob = (window.__gestBlob || 0) + 1;
     b.arrayBuffer().then(buf => { try { GEST.ws.send(buf); } catch(e){} });
   }, 'image/jpeg', 0.62);
 }
@@ -2053,9 +2061,11 @@ function renderSetup(type){
   if (settings.backendVoice && BACKEND.asrReady()) aiWays.push('直接说「向上 / 向下 / 向左 / 向右」（两个字比单字更准）');
   else if (settings.offlineVoice && ovLoadModel()) aiWays.push('直接说「上 / 下 / 左 / 右」');
   if (settings.gesture && BACKEND.poseReady()) aiWays.push('用手指一下方向');
-  const aiTip = aiWays.length
+  const aiTip = (aiWays.length
     ? `<p class="muted small">不想碰屏幕？${aiWays.join('，或者')}，设备会自动识别。</p>`
-    : '<p class="muted small">不想碰屏幕？在「设置」里连接 Python AI 后端，可开启语音 / 手势作答。</p>';
+    : '<p class="muted small">不想碰屏幕？在「设置」里连接 Python AI 后端，可开启语音 / 手势作答。</p>')
+    + (!isFar && settings.gesture && BACKEND.poseReady()
+      ? '<p class="muted small">提示：40 厘米自拍距离摄像头视野有限，手势可能拍不到整条手臂，建议用语音或按键。</p>' : '');
   $('#setupBody').innerHTML = isFar ? `
     <h3>需要两个人</h3>
     <ul>
@@ -2654,3 +2664,4 @@ window.addEventListener('unhandledrejection', (e) => {
 </script>
 </body>
 </html>
+

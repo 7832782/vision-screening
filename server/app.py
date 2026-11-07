@@ -129,7 +129,6 @@ async def health():
             "ready": pose is not None,
             "model": "pose_landmarker_full" if pose is not None else None,
         },
-        "modelsDir": (app.state.models or {}).get("cache_dir") if getattr(app.state, "models", None) else None,
     }
 
 
