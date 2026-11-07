@@ -372,6 +372,26 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   </div>
 </section>
 
+<!-- ==================== 录制方向词 ==================== -->
+<section class="screen" data-screen="enroll">
+  <div class="wrap">
+    <h2>录制四个方向词</h2>
+    <div class="card small">
+      <p>离线语音<strong>不联网、不上传</strong>：先让使用者各念两遍「上、下、左、右」，程序把声音特征记在本机。</p>
+      <p class="muted" id="enrollProgress">第 1 / 4 个词（第一遍）</p>
+    </div>
+    <div class="card center" style="padding:26px 20px">
+      <div class="muted small">请说：</div>
+      <div id="enrollWord" style="font-size:clamp(56px,12vw,104px);font-weight:800;line-height:1.1">上</div>
+    </div>
+    <button class="btn big" id="enrollHold" style="touch-action:none">按住说话</button>
+    <div id="enrollTip" class="muted small center">按住按钮，清晰地说一次，松开</div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn ghost" data-go="settings">返回设置</button>
+    </div>
+  </div>
+</section>
+
 <!-- ==================== 设置 ==================== -->
 <section class="screen" data-screen="settings">
   <div class="wrap">
@@ -385,7 +405,15 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <button class="switch" id="swVoice" role="switch" aria-checked="true"></button>
       </div>
       <div class="set-row">
-        <div><div style="font-weight:700">语音作答（实验）</div><div class="muted small" id="voiceAnswerHint">测试时直接说「上 / 下 / 左 / 右」，不用碰屏幕</div></div>
+        <div><div style="font-weight:700">离线语音（推荐）</div><div class="muted small" id="offlineHint">录过方向词后，说「上 / 下 / 左 / 右」直接作答，不联网</div></div>
+        <button class="switch" id="swOfflineVoice" role="switch" aria-checked="false"></button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">录制方向词</div><div class="muted small" id="tplStatus">未录制</div></div>
+        <button class="btn secondary" data-go="enroll" style="flex:none;min-height:52px">去录制</button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">语音作答（Web Speech）</div><div class="muted small" id="voiceAnswerHint">测试时直接说「上 / 下 / 左 / 右」，不用碰屏幕</div></div>
         <button class="switch" id="swVoiceAnswer" role="switch" aria-checked="false"></button>
       </div>
       <div class="set-row">
@@ -478,7 +506,7 @@ const store = {
   del(k){ try { localStorage.removeItem(k); } catch(e){} },
 };
 
-const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2, voiceAnswer: false };
+const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2, voiceAnswer: false, offlineVoice: false };
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.get('vs.settings', {}));
 
 // 校准值：每 1 个 CSS 像素对应多少毫米
@@ -577,6 +605,11 @@ function setMicBadge(text){
 }
 
 function startVoiceAnswer(){
+  if (settings.offlineVoice) { ovStartListening(); return; }
+  startWebSpeechAnswer();
+}
+
+function startWebSpeechAnswer(){
   if (!settings.voiceAnswer) return;
   if (!voiceAnswerSupported()) {
     toast('这个浏览器不支持语音识别（需要 HTTPS + Chrome/Safari）');
@@ -636,7 +669,451 @@ function startVoiceAnswer(){
 function stopVoiceAnswer(){
   try { recog && recog.stop(); } catch (e) {}
   recogRunning = false;
+  ovStopListening();
   setMicBadge(null);
+}
+
+/* =====================================================================
+   3.6 离线语音：自学习模板 + MFCC + DTW（不联网、不上传）
+   用法：先让使用者各念两遍「上/下/左/右」当模板，之后实时比对这些模板。
+   ===================================================================== */
+const OV = {
+  SR: 16000, FRAME: 400, HOP: 160, NFFT: 512, NMEL: 26, NCEP: 13,
+  ctx: null, stream: null, node: null,
+  recordChunks: null,     // 录制时收集
+  onChunk: null,          // 实时监听回调
+};
+const WORDS = ['up', 'down', 'left', 'right'];
+const WORD_CN = { up: '上', down: '下', left: '左', right: '右' };
+
+/* ---------- FFT（radix-2） ---------- */
+function ovFFT(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      let t = re[i]; re[i] = re[j]; re[j] = t;
+      t = im[i]; im[i] = im[j]; im[j] = t;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len;
+    const wRe = Math.cos(ang), wIm = Math.sin(ang);
+    const half = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let curRe = 1, curIm = 0;
+      for (let k = 0; k < half; k++) {
+        const aRe = re[i + k], aIm = im[i + k];
+        const bRe = re[i + k + half] * curRe - im[i + k + half] * curIm;
+        const bIm = re[i + k + half] * curIm + im[i + k + half] * curRe;
+        re[i + k] = aRe + bRe; im[i + k] = aIm + bIm;
+        re[i + k + half] = aRe - bRe; im[i + k + half] = aIm - bIm;
+        const t = curRe * wRe - curIm * wIm;
+        curIm = curRe * wIm + curIm * wRe;
+        curRe = t;
+      }
+    }
+  }
+}
+
+/* ---------- Mel 滤波器组 ---------- */
+let ovBankCache = null;
+function ovMelBank() {
+  if (ovBankCache) return ovBankCache;
+  const mel = f => 2595 * Math.log10(1 + f / 700);
+  const imel = m => 700 * (Math.pow(10, m / 2595) - 1);
+  const fmin = 40, fmax = OV.SR / 2;
+  const m1 = mel(fmin), m2 = mel(fmax);
+  const pts = [];
+  for (let i = 0; i < OV.NMEL + 2; i++) pts.push(imel(m1 + (m2 - m1) * i / (OV.NMEL + 1)));
+  const bins = pts.map(f => Math.min(OV.NFFT / 2, Math.max(0, Math.floor((OV.NFFT + 1) * f / OV.SR))));
+  const filters = [];
+  for (let m = 1; m <= OV.NMEL; m++) {
+    const l = bins[m - 1], c = bins[m], r = bins[m + 1];
+    const f = new Float32Array(OV.NFFT / 2 + 1);
+    for (let k = 0; k <= OV.NFFT / 2; k++) {
+      if (k >= l && k <= c && c > l) f[k] = (k - l) / (c - l);
+      else if (k > c && k <= r && r > c) f[k] = (r - k) / (r - c);
+    }
+    filters.push(f);
+  }
+  ovBankCache = filters;
+  return filters;
+}
+
+function ovResample(samples, fromSR) {
+  if (fromSR === OV.SR) return samples;
+  const ratio = OV.SR / fromSR;
+  const n = Math.max(1, Math.floor(samples.length * ratio));
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = i / ratio;
+    const i0 = Math.floor(x);
+    const i1 = Math.min(samples.length - 1, i0 + 1);
+    const t = x - i0;
+    out[i] = samples[i0] * (1 - t) + samples[i1] * t;
+  }
+  return out;
+}
+
+/* ---------- MFCC：13 维倒谱 ---------- */
+function ovMFCC(samples, sampleRate = OV.SR) {
+  const x = ovResample(samples, sampleRate);
+  if (x.length < OV.FRAME) return [];
+  const bank = ovMelBank();
+  const pre = new Float32Array(x.length);
+  for (let i = 0; i < x.length; i++) pre[i] = i === 0 ? x[0] : x[i] - 0.97 * x[i - 1];
+  const win = new Float32Array(OV.FRAME);
+  for (let i = 0; i < OV.FRAME; i++) win[i] = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (OV.FRAME - 1));
+
+  const frames = [];
+  for (let s = 0; s + OV.FRAME <= pre.length; s += OV.HOP) {
+    const re = new Float32Array(OV.NFFT), im = new Float32Array(OV.NFFT);
+    for (let i = 0; i < OV.FRAME; i++) re[i] = pre[s + i] * win[i];
+    ovFFT(re, im);
+    const power = new Float32Array(OV.NFFT / 2 + 1);
+    for (let k = 0; k <= OV.NFFT / 2; k++) power[k] = re[k] * re[k] + im[k] * im[k];
+
+    const cep = new Float32Array(OV.NCEP);
+    for (let m = 0; m < OV.NMEL; m++) {
+      let e = 0;
+      const f = bank[m];
+      for (let k = 0; k <= OV.NFFT / 2; k++) e += f[k] * power[k];
+      const logE = Math.log(e + 1e-10);
+      for (let c = 0; c < OV.NCEP; c++) cep[c] += logE * Math.cos(Math.PI * c * (m + 0.5) / OV.NMEL);
+    }
+    frames.push(Array.from(cep));
+  }
+  return frames;
+}
+
+/* ---------- 倒谱均值方差归一化：去掉麦克风/音量差异，丢掉 c0（能量） ---------- */
+function ovCMN(frames) {
+  if (!frames.length) return [];
+  const n = frames.length, d = frames[0].length;
+  const mean = new Array(d).fill(0);
+  for (const f of frames) for (let i = 0; i < d; i++) mean[i] += f[i] / n;
+  const varr = new Array(d).fill(0);
+  for (const f of frames) for (let i = 0; i < d; i++) varr[i] += (f[i] - mean[i]) ** 2 / n;
+  const std = varr.map(v => Math.sqrt(v) || 1);
+  return frames.map(f => {
+    const out = new Array(d - 1);
+    for (let i = 1; i < d; i++) out[i - 1] = (f[i] - mean[i]) / std[i];
+    return out;
+  });
+}
+
+/* ---------- DTW：带 Sakoe-Chiba 带宽的欧氏距离 ---------- */
+function ovDTW(a, b) {
+  const n = a.length, m = b.length;
+  if (!n || !m) return Infinity;
+  const dim = a[0].length;
+  const band = Math.max(10, Math.floor(Math.max(n, m) * 0.35));
+  const INF = 1e9;
+  let prev = new Float32Array(m).fill(INF);
+  let cur = new Float32Array(m);
+
+  for (let i = 0; i < n; i++) {
+    cur.fill(INF);
+    const j0 = Math.max(0, i - band), j1 = Math.min(m - 1, i + band);
+    for (let j = j0; j <= j1; j++) {
+      let cost = 0;
+      for (let d = 0; d < dim; d++) { const t = a[i][d] - b[j][d]; cost += t * t; }
+      cost = Math.sqrt(cost);
+      let best;
+      if (i === 0 && j === 0) best = cost;
+      else {
+        best = INF;
+        if (i > 0 && j > 0 && prev[j - 1] < best) best = prev[j - 1];
+        if (i > 0 && prev[j] < best) best = prev[j];
+        if (j > 0 && cur[j - 1] < best) best = cur[j - 1];
+        best += cost;
+      }
+      cur[j] = best;
+    }
+    const t = prev; prev = cur; cur = t;
+  }
+  return prev[m - 1] / (n + m);
+}
+
+/* ---------- 能量裁剪：去掉前后静音 ---------- */
+function ovTrim(samples) {
+  const fl = 400, hop = 160;
+  const energies = [];
+  for (let s = 0; s + fl <= samples.length; s += hop) {
+    let e = 0;
+    for (let i = 0; i < fl; i++) e += samples[s + i] * samples[s + i];
+    energies.push(Math.sqrt(e / fl));
+  }
+  if (!energies.length) return samples;
+  const peak = Math.max(...energies);
+  if (peak < 1e-4) return samples;
+  const thr = peak * 0.12;
+  let first = energies.findIndex(e => e > thr);
+  let last = energies.length - 1;
+  while (last > 0 && energies[last] <= thr) last--;
+  if (first < 0) first = 0;
+  const start = Math.max(0, first * hop - 800);
+  const end = Math.min(samples.length, last * hop + fl + 800);
+  return samples.slice(start, end);
+}
+
+/* ---------- 麦克风 ---------- */
+function ovMicOpen() {
+  if (OV.ctx) return Promise.resolve();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return Promise.reject(new Error('浏览器不支持麦克风'));
+  }
+  return navigator.mediaDevices.getUserMedia({
+    audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  }).then(async (stream) => {
+    let ctx;
+    try { ctx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: OV.SR }); }
+    catch (e) { ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+    if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) {} }
+    const source = ctx.createMediaStreamSource(stream);
+    const node = ctx.createScriptProcessor(2048, 1, 1);
+    const sink = ctx.createGain();
+    sink.gain.value = 0;                       // 静音输出，避免啸叫
+    node.onaudioprocess = (ev) => {
+      const d = ev.inputBuffer.getChannelData(0);
+      const copy = new Float32Array(d.length);
+      copy.set(d);
+      if (OV.recordChunks) OV.recordChunks.push(copy);
+      if (OV.onChunk) OV.onChunk(copy, ctx.sampleRate);
+    };
+    source.connect(node);
+    node.connect(sink);
+    sink.connect(ctx.destination);
+    OV.ctx = ctx; OV.stream = stream; OV.node = node;
+  });
+}
+
+function ovMicClose() {
+  OV.onChunk = null;
+  OV.recordChunks = null;
+  try { OV.node && OV.node.disconnect(); } catch (e) {}
+  try { OV.stream && OV.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+  try { OV.ctx && OV.ctx.close(); } catch (e) {}
+  OV.ctx = OV.stream = OV.node = null;
+}
+
+/* ---------- 模板存取 ---------- */
+function ovLoadModel() { return store.get('vs.voiceModel', null); }
+function ovSaveModel(model) { store.set('vs.voiceModel', model); }
+
+/* ---------- 实时关键词检测（能量 VAD + 模板匹配） ---------- */
+const VAD = {
+  pending: new Float32Array(0),
+  pre: [],
+  utt: null,
+  level: -70,
+  silence: 0,
+  cooldownUntil: 0,
+  reset() { this.pending = new Float32Array(0); this.pre = []; this.utt = null; this.silence = 0; this.level = -70; },
+};
+
+function ovVadProcess(frame) {
+  let sum = 0;
+  for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+  const db = 10 * Math.log10(sum / frame.length + 1e-12);
+
+  // 刚答完题的 250ms 内忽略，避免同一个词触发两次
+  if (performance.now() < VAD.cooldownUntil) return;
+
+  if (!VAD.utt) {
+    if (db < VAD.level + 6) VAD.level = 0.95 * VAD.level + 0.05 * db;
+    VAD.pre.push(frame);
+    if (VAD.pre.length > 30) VAD.pre.shift();
+    if (db > VAD.level + 12) {
+      VAD.utt = VAD.pre.slice();
+      VAD.silence = 0;
+    }
+    return;
+  }
+
+  VAD.utt.push(frame);
+  if (db < VAD.level + 8) VAD.silence++; else VAD.silence = 0;
+
+  if (VAD.silence > 12 || VAD.utt.length > 160) {
+    const seg = VAD.utt.slice(0, Math.max(1, VAD.utt.length - VAD.silence));
+    VAD.utt = null;
+    VAD.pre = [];
+    VAD.cooldownUntil = performance.now() + 250;
+    const n = seg.length * 160;
+    const flat = new Float32Array(n);
+    let p = 0;
+    for (const f of seg) { flat.set(f, p); p += f.length; }
+    if (n > 160 * 8 && ovOnSegment) ovOnSegment(flat);
+  }
+}
+
+let ovOnSegment = null;
+
+function ovFeed(chunk, sampleRate) {
+  const x = ovResample(chunk, sampleRate);
+  const merged = new Float32Array(VAD.pending.length + x.length);
+  merged.set(VAD.pending, 0);
+  merged.set(x, VAD.pending.length);
+  let off = 0;
+  while (off + 160 <= merged.length) {
+    ovVadProcess(merged.subarray(off, off + 160));
+    off += 160;
+  }
+  VAD.pending = merged.slice(off);
+}
+
+/* ---------- 匹配 ---------- */
+function ovMatch(frames) {
+  const model = ovLoadModel();
+  if (!model || !frames.length) return null;
+  const feat = ovCMN(frames);
+  if (feat.length < 6) return null;
+
+  // 先按"词"聚合：同一个词的两个模板取最近的那个
+  const perWord = {};
+  for (const w of WORDS) {
+    let bestD = Infinity;
+    for (const tpl of (model.tpl[w] || [])) bestD = Math.min(bestD, ovDTW(feat, tpl));
+    perWord[w] = bestD;
+  }
+  const ranked = Object.entries(perWord).sort((a, b) => a[1] - b[1]);
+  const [word, dist] = ranked[0];
+  const second = ranked.length > 1 ? ranked[1][1] : Infinity;
+  const thr = model.thr, margin = model.margin;
+  const ok = dist < thr && (second === Infinity || second - dist > margin);
+  return { word, dist, second, thr, ok, perWord };
+}
+
+/* ---------- 开始/停止监听 ---------- */
+function ovStartListening() {
+  const model = ovLoadModel();
+  if (!model) { toast('还没有录制方向词，请先到设置里录制'); return; }
+  VAD.reset();
+  ovOnSegment = (audio) => {
+    if (ttsBusy || !session || session.aborted) return;
+    // 关键：识别时也要做能量裁剪，去掉前后静音，否则片段比模板长、距离被拉大
+    const frames = ovMFCC(ovTrim(audio));
+    const m = ovMatch(frames);
+    if (!m) return;
+    if (DEBUG) window.__lastMatch = { word: m.word, dist: +m.dist.toFixed(2), thr: +m.thr.toFixed(2), ok: m.ok };
+    if (m.ok) {
+      setMicBadge('🎤 ' + WORD_CN[m.word]);
+      setTimeout(() => setMicBadge('🎤'), 800);
+      answer(m.word);
+    }
+  };
+  ovMicOpen().then(() => {
+    OV.onChunk = ovFeed;
+    setMicBadge('🎤');
+  }).catch((e) => {
+    toast('麦克风打不开：' + (e.message || e));
+  });
+}
+
+function ovStopListening() {
+  ovOnSegment = null;
+  ovMicClose();
+  VAD.reset();
+}
+
+/* ---------- 录制四个方向词（每词两遍） ---------- */
+let enroll = null;
+
+function openEnroll() {
+  enroll = {
+    seq: ['up', 'down', 'left', 'right', 'up', 'down', 'left', 'right'],
+    i: 0,
+    data: { up: [], down: [], left: [], right: [] },
+  };
+  if (DEBUG) window.__enroll = enroll;
+  renderEnroll();
+  showScreen('enroll');
+}
+
+function renderEnroll() {
+  if (!enroll) return;
+  const w = enroll.seq[enroll.i];
+  $('#enrollWord').textContent = WORD_CN[w];
+  $('#enrollProgress').textContent = enroll.i < 4
+    ? `第 ${enroll.i + 1} / 4 个词（第一遍）`
+    : `第 ${enroll.i - 3} / 4 个词（第二遍，换个语气再说一遍）`;
+  $('#enrollTip').textContent = enroll.i >= 4
+    ? '再录一遍，模板会更稳'
+    : '按住按钮，清晰地说一次，松开';
+}
+
+async function enrollHoldStart() {
+  if (!enroll || enroll.recording) return;
+  enroll.recording = true;
+  try {
+    await ovMicOpen();
+  } catch (e) {
+    enroll.recording = false;
+    toast('麦克风打不开：' + (e.message || e));
+    return;
+  }
+  OV.recordChunks = [];
+  enroll.timer = setTimeout(() => enrollHoldStop(), 1600);
+  $('#enrollHold').textContent = '松开发送';
+}
+
+function enrollHoldStop() {
+  if (!enroll || !enroll.recording) return;
+  enroll.recording = false;
+  clearTimeout(enroll.timer);
+  $('#enrollHold').textContent = '按住说话';
+  const chunks = OV.recordChunks || [];
+  OV.recordChunks = null;
+  if (!chunks.length) { toast('没录到声音，再试一次'); return; }
+
+  const total = chunks.reduce((a, c) => a + c.length, 0);
+  const all = new Float32Array(total);
+  let p = 0;
+  for (const c of chunks) { all.set(c, p); p += c.length; }
+
+  const sr = OV.ctx ? OV.ctx.sampleRate : 48000;
+  const x = ovResample(all, sr);
+  const trimmed = ovTrim(x);
+  const frames = ovCMN(ovMFCC(trimmed));
+  if (frames.length < 8) { toast('太短了，说长一点点'); return; }
+  if (frames.length > 200) { toast('太长了，短促一点'); return; }
+
+  const w = enroll.seq[enroll.i];
+  enroll.data[w].push(frames.map(f => f.map(v => Math.round(v * 100) / 100)));
+  enroll.i++;
+  beep(880, .06);
+
+  if (enroll.i >= enroll.seq.length) finishEnroll();
+  else { renderEnroll(); }
+}
+
+function finishEnroll() {
+  const tpl = enroll.data;
+  for (const w of WORDS) {
+    if (!tpl[w] || tpl[w].length < 2) { toast('录制不完整，请重新来一次'); openEnroll(); return; }
+  }
+  const intra = [], cross = [];
+  for (const w of WORDS) intra.push(ovDTW(tpl[w][0], tpl[w][1]));
+  for (const a of WORDS) for (const b of WORDS) {
+    if (a !== b) cross.push(ovDTW(tpl[a][0], tpl[b][0]));
+  }
+  const mean = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
+  const mi = mean(intra), mc = mean(cross);
+  const thr = Math.max(0.05, Math.min(mi * 1.9, mc * 0.75));
+  const margin = Math.max(0.02, thr * 0.18);
+  const model = { v: 1, tpl, thr, margin, at: Date.now(), intra: mi, cross: mc };
+  ovSaveModel(model);
+
+  enroll = null;
+  if (DEBUG) window.__enroll = null;
+  beep(660, .1);
+  speak('录制完成');
+  renderSettings();
+  showScreen('settings');
+  toast(`录制完成：同词距离 ${mi.toFixed(2)}，异词距离 ${mc.toFixed(2)}，阈值 ${thr.toFixed(2)}`);
 }
 
 /* =====================================================================
@@ -1058,7 +1535,7 @@ async function startSession(){
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
-  if (settings.voiceAnswer) startVoiceAnswer();
+  if (settings.offlineVoice || settings.voiceAnswer) startVoiceAnswer();
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;
@@ -1176,6 +1653,15 @@ function renderSettings(){
   $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
   const swVA = $('#swVoiceAnswer');
   if (swVA) swVA.setAttribute('aria-checked', String(!!settings.voiceAnswer));
+  const swOF = $('#swOfflineVoice');
+  if (swOF) swOF.setAttribute('aria-checked', String(!!settings.offlineVoice));
+  const tplStatus = $('#tplStatus');
+  if (tplStatus) {
+    const model = ovLoadModel();
+    tplStatus.textContent = model
+      ? `已录制 4 个词 × 2 遍（同词距离 ${model.intra.toFixed(2)}，异词距离 ${model.cross.toFixed(2)}）`
+      : '未录制 —— 离线语音需要先录一遍';
+  }
   const vh = $('#voiceAnswerHint');
   if (vh) {
     vh.textContent = voiceAnswerSupported()
@@ -1254,6 +1740,7 @@ document.addEventListener('click', (e) => {
     const go = t.dataset.go;
     if (go === 'home') { pendingStart = null; }
     if (go === 'calib') { openCalib(); return; }
+    if (go === 'enroll') { openEnroll(); return; }
     if (go === 'settings') { renderSettings(); }
     if (go === 'history') { renderHistory(); }
     if (go === 'home') { showScreen('home'); return; }
@@ -1427,6 +1914,18 @@ $('#swBeep').addEventListener('click', () => {
   $('#swBeep').setAttribute('aria-checked', String(settings.beep));
   if (settings.beep) beep(880, .08);
 });
+$('#swOfflineVoice')?.addEventListener('click', () => {
+  if (!settings.offlineVoice && !ovLoadModel()) {
+    toast('先录制四个方向词，才能用离线语音');
+    openEnroll();
+    return;
+  }
+  settings.offlineVoice = !settings.offlineVoice;
+  if (settings.offlineVoice) settings.voiceAnswer = false;   // 两种语音互斥
+  store.set('vs.settings', settings);
+  renderSettings();
+  if (settings.offlineVoice) toast('离线语音已打开：测试时说「上 / 下 / 左 / 右」');
+});
 $('#swVoiceAnswer')?.addEventListener('click', () => {
   if (!settings.voiceAnswer && !voiceAnswerSupported()) {
     toast('这个浏览器不支持语音识别，可以改用方向键、滑动或蓝牙遥控器');
@@ -1442,6 +1941,18 @@ $('#swVoiceAnswer')?.addEventListener('click', () => {
     stopVoiceAnswer();
   }
 });
+
+/* 录制：按住说话 */
+const enrollHoldBtn = $('#enrollHold');
+if (enrollHoldBtn) {
+  enrollHoldBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    try { enrollHoldBtn.setPointerCapture(e.pointerId); } catch (err) {}
+    enrollHoldStart();
+  });
+  enrollHoldBtn.addEventListener('pointerup', (e) => { e.preventDefault(); enrollHoldStop(); });
+  enrollHoldBtn.addEventListener('pointercancel', () => enrollHoldStop());
+}
 $('#segNearDist').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-near]');
   if (!b) return;

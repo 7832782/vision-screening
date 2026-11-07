@@ -1,0 +1,10 @@
+import re, subprocess, sys, tempfile, os
+html = open("index.html", encoding="utf-8").read()
+m = re.search(r"<script>(.*)</script>", html, re.S)
+js = m.group(1)
+path = os.path.join(os.environ["TEMP"], "vs_check.mjs")
+open(path, "w", encoding="utf-8").write(js)
+r = subprocess.run(["node", "--check", path], capture_output=True, text=True)
+print("exit:", r.returncode)
+print(r.stdout[-2000:])
+print(r.stderr[-2000:])
