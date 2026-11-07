@@ -208,6 +208,16 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 .hist-item{display:flex;justify-content:space-between;gap:12px;padding:14px 4px;border-bottom:1px solid var(--line);font-size:.94em}
 .hist-item:last-child{border-bottom:none}
 
+/* 横向提示条 */
+#toast{
+  position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(20px);
+  background:rgba(20,22,26,.93);color:#fff;padding:14px 20px;border-radius:14px;
+  font-size:.95em;max-width:88vw;text-align:center;opacity:0;pointer-events:none;
+  transition:opacity .2s,transform .2s;z-index:9999;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
 /* 横屏（一体机）微调 */
 @media (orientation:landscape) and (min-height:600px){
   #hud{height:64px}
@@ -330,6 +340,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   <div id="hud">
     <div id="hudLeft"><strong>—</strong></div>
     <div class="row" style="align-items:center;gap:10px">
+      <span id="micBadge" hidden style="font-size:1.1em">🎤</span>
       <span id="hudRight"></span>
       <button id="btnPause">暂停</button>
     </div>
@@ -372,6 +383,10 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       <div class="set-row">
         <div><div style="font-weight:700">语音提示</div><div class="muted small">用语音念出每一步的操作</div></div>
         <button class="switch" id="swVoice" role="switch" aria-checked="true"></button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">语音作答（实验）</div><div class="muted small" id="voiceAnswerHint">测试时直接说「上 / 下 / 左 / 右」，不用碰屏幕</div></div>
+        <button class="switch" id="swVoiceAnswer" role="switch" aria-checked="false"></button>
       </div>
       <div class="set-row">
         <div><div style="font-weight:700">按键音</div><div class="muted small">每次作答给一个轻提示音</div></div>
@@ -463,7 +478,7 @@ const store = {
   del(k){ try { localStorage.removeItem(k); } catch(e){} },
 };
 
-const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2 };
+const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2, voiceAnswer: false };
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.get('vs.settings', {}));
 
 // 校准值：每 1 个 CSS 像素对应多少毫米
@@ -480,6 +495,8 @@ function devPerMm(){
    3. 语音 / 提示音
    ===================================================================== */
 let audioCtx = null;
+let ttsBusy = false;        // 正在播报语音时，忽略麦克风识别结果（防止把自己的播报当答案）
+let ttsTimer = null;
 function beep(freq = 880, dur = 0.06, gain = 0.05){
   if (!settings.beep) return;
   try {
@@ -502,12 +519,124 @@ function speak(text){
     const vs = window.speechSynthesis.getVoices() || [];
     const zh = vs.find(v => /zh|Chinese/i.test(v.lang));
     if (zh) u.voice = zh;
+    const clearBusy = () => { ttsBusy = false; };
+    ttsBusy = true;
+    u.onend = clearBusy;
+    u.onerror = clearBusy;
     window.speechSynthesis.speak(u);
-  } catch(e){}
+    clearTimeout(ttsTimer);
+    ttsTimer = setTimeout(clearBusy, 9000);   // 兜底：某些浏览器不触发 onend
+  } catch(e) { ttsBusy = false; }
 }
 if ('speechSynthesis' in window) {
   // 部分浏览器需要预热一下 voice 列表
   window.speechSynthesis.getVoices();
+}
+
+/* =====================================================================
+   3.5 语音作答（实验）：说「上 / 下 / 左 / 右」直接作答
+   依赖 Web Speech API（需要 HTTPS + 麦克风权限；Chrome 的识别服务在境外）
+   ===================================================================== */
+const SR_CTOR = () => window.SpeechRecognition || window.webkitSpeechRecognition || null;
+let recog = null;
+let recogRunning = false;
+
+function voiceAnswerSupported(){ return !!SR_CTOR() && window.isSecureContext; }
+
+/* 从识别文本里取方向词；太长的句子（多半是在聊天）不当作答 */
+function parseSpokenDir(text){
+  const t = String(text || '').replace(/[，。！？、,.\s]/g, '');
+  if (!t || t.length > 8) return null;
+  let best = null, bestIdx = -1;
+  for (const [w, d] of [['上', 'up'], ['下', 'down'], ['左', 'left'], ['右', 'right']]) {
+    const i = t.lastIndexOf(w);
+    if (i > bestIdx) { bestIdx = i; best = d; }
+  }
+  return bestIdx >= 0 ? best : null;
+}
+
+function toast(msg, ms = 2800){
+  let el = document.getElementById('toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function setMicBadge(text){
+  const b = document.getElementById('micBadge');
+  if (!b) return;
+  if (text === null) { b.hidden = true; return; }
+  b.hidden = false;
+  b.textContent = text;
+}
+
+function startVoiceAnswer(){
+  if (!settings.voiceAnswer) return;
+  if (!voiceAnswerSupported()) {
+    toast('这个浏览器不支持语音识别（需要 HTTPS + Chrome/Safari）');
+    return;
+  }
+  try {
+    if (!recog) {
+      const Ctor = SR_CTOR();
+      if (!Ctor) return;
+      recog = new Ctor();
+      recog.lang = 'zh-CN';
+      recog.continuous = true;
+      recog.interimResults = true;
+      recog.maxAlternatives = 3;
+
+      recog.onstart = () => { recogRunning = true; setMicBadge('🎤'); };
+      recog.onresult = (ev) => {
+        if (ttsBusy) return;        // 设备正在播报，忽略（避免自听）
+        let txt = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+        const dir = parseSpokenDir(txt);
+        if (!dir) return;
+        setMicBadge('🎤 ' + { up:'上', down:'下', left:'左', right:'右' }[dir]);
+        setTimeout(() => { if (recogRunning) setMicBadge('🎤'); }, 700);
+        answer(dir);
+      };
+      recog.onerror = (ev) => {
+        const err = ev.error;
+        recogRunning = false;
+        setMicBadge(null);
+        if (err === 'no-speech' || err === 'aborted') return;
+        if (err === 'not-allowed' || err === 'service-not-allowed') {
+          settings.voiceAnswer = false;
+          store.set('vs.settings', settings);
+          renderSettings();
+          toast('麦克风权限被拒绝，已关闭语音作答');
+        } else if (err === 'network') {
+          toast('连不上语音识别服务（Chrome 依赖 Google 服务），请改用方向键或滑动');
+        } else {
+          toast('语音识别出错：' + err);
+        }
+      };
+      recog.onend = () => {
+        recogRunning = false;
+        const inTest = document.querySelector('[data-screen="test"]')?.classList.contains('active');
+        if (settings.voiceAnswer && session && !session.aborted && inTest) {
+          try { recog.start(); } catch (e) {}
+        } else {
+          setMicBadge(null);
+        }
+      };
+    }
+    recog.start();
+  } catch (e) { /* 已经在跑了 */ }
+}
+
+function stopVoiceAnswer(){
+  try { recog && recog.stop(); } catch (e) {}
+  recogRunning = false;
+  setMicBadge(null);
 }
 
 /* =====================================================================
@@ -873,9 +1002,15 @@ function renderSetup(type){
       <button data-dist="1.5" aria-pressed="${(settings.distanceM || 2) === 1.5}">1.5 米</button>
       <button data-dist="1"   aria-pressed="${(settings.distanceM || 2) === 1}">1 米</button>
     </div>
+    <div class="row" style="align-items:center;margin-top:10px">
+      <input id="customDist" inputmode="decimal" placeholder="任意距离（1–5 米），如 2.5"
+             style="flex:1;min-height:58px;font-size:1em;padding:0 14px;border-radius:14px;border:2px solid var(--line);background:#fff">
+      <button class="btn secondary" data-action="set-dist" style="flex:none;min-height:58px">应用</button>
+    </div>
     <p class="muted small" id="distTip">${distTip(settings.distanceM || 2)}</p>
     ${capWarn}
     <p class="muted small">助手请不要看屏幕上的 E，避免影响结果。</p>
+    <p class="muted small">不想碰屏幕？在「设置」里打开<strong>语音作答</strong>，被测者直接说「上 / 下 / 左 / 右」即可。</p>
   ` : `
     <h3>一个人就能做</h3>
     <ul>
@@ -887,15 +1022,17 @@ function renderSetup(type){
     </ul>
     <p class="muted small">测的过程中尽量保持头不动、距离不变。</p>
     ${capWarn}
+    <p class="muted small">不想碰屏幕？在「设置」里打开<strong>语音作答</strong>，直接说「上 / 下 / 左 / 右」即可。</p>
   `;
 }
 
 /* 不同距离的取舍说明（依据：视角 = 视标高度 / 距离，线性成立；
    但要考虑老年人调节力与屏幕分辨率下限） */
 function distTip(m){
-  if (m === 2) return '2 米是国际通用的标准距离，老年人不需要动用调节力，结果最可靠。推荐用卷尺或在地上贴一条 2 米标记。';
-  if (m === 1.5) return '1.5 米在空间紧张时可用，视标会按比例缩小。注意：此时眼睛需要约 0.67 D 的调节，部分老年人可能略微低估视力。';
-  return '1 米最容易量（约成人一臂半），但调节需求约 1 D，老年人可能明显低估视力，只建议空间实在不够时用。';
+  if (m >= 2.4) return `${m} 米也可以：视标会按距离等比放大，测量原理不变，但需要更大的房间和更亮的照明。一般仍推荐 2 米。`;
+  if (m >= 1.9) return '2 米是国际通用的标准距离，老年人不需要动用调节力，结果最可靠。推荐用卷尺或在地上贴一条 2 米标记。';
+  if (m >= 1.4) return `${m} 米在空间紧张时可用，视标会按比例缩小。此时眼睛约需 ${(1 / m).toFixed(2)} D 调节，部分老年人可能略微低估视力。`;
+  return `${m} 米最容易量（约成人一臂半），但调节需求约 ${(1 / m).toFixed(1)} D，老年人可能明显低估视力，只建议空间实在不够时用。`;
 }
 
 function beginFlow(type){
@@ -921,6 +1058,7 @@ async function startSession(){
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
+  if (settings.voiceAnswer) startVoiceAnswer();
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;
@@ -941,6 +1079,7 @@ async function startSession(){
 function finishSession(){
   $('#answerbar').hidden = true;
   hideOverlay();
+  stopVoiceAnswer();
   releaseWakeLock();
   const type = session.type;
   const results = session.results;
@@ -1035,6 +1174,14 @@ function renderResult(type, results){
 function renderSettings(){
   $('#swVoice').setAttribute('aria-checked', String(!!settings.voice));
   $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
+  const swVA = $('#swVoiceAnswer');
+  if (swVA) swVA.setAttribute('aria-checked', String(!!settings.voiceAnswer));
+  const vh = $('#voiceAnswerHint');
+  if (vh) {
+    vh.textContent = voiceAnswerSupported()
+      ? '测试时直接说「上 / 下 / 左 / 右」，不用碰屏幕'
+      : '此浏览器不支持语音识别；可用方向键 / 滑动 / 蓝牙遥控器';
+  }
   $$('#segNearDist button').forEach(b => {
     b.setAttribute('aria-pressed', String(Number(b.dataset.near) === settings.nearDistance));
   });
@@ -1127,6 +1274,15 @@ document.addEventListener('click', (e) => {
         calibLenPx = calibObjMm() / estimateMmPerCss(v);
         paintCalib();
         beep(660, .07);
+        break;
+      }
+      case 'set-dist': {
+        const v = parseFloat($('#customDist').value);
+        if (!(v >= 1 && v <= 5)) { toast('请输入 1–5 米之间的距离'); break; }
+        settings.distanceM = Math.round(v * 10) / 10;
+        store.set('vs.settings', settings);
+        renderSetup('distance');
+        toast(`测试距离已设为 ${settings.distanceM} 米`);
         break;
       }
       case 'setup-start': startSession(); break;
@@ -1252,6 +1408,7 @@ $('#btnPause').addEventListener('click', () => {
     session.paused = false;
     hideOverlay();
     $('#answerbar').hidden = true;
+    stopVoiceAnswer();
     releaseWakeLock();
     showScreen('home');
   };
@@ -1269,6 +1426,21 @@ $('#swBeep').addEventListener('click', () => {
   store.set('vs.settings', settings);
   $('#swBeep').setAttribute('aria-checked', String(settings.beep));
   if (settings.beep) beep(880, .08);
+});
+$('#swVoiceAnswer')?.addEventListener('click', () => {
+  if (!settings.voiceAnswer && !voiceAnswerSupported()) {
+    toast('这个浏览器不支持语音识别，可以改用方向键、滑动或蓝牙遥控器');
+    return;
+  }
+  settings.voiceAnswer = !settings.voiceAnswer;
+  store.set('vs.settings', settings);
+  $('#swVoiceAnswer').setAttribute('aria-checked', String(settings.voiceAnswer));
+  if (settings.voiceAnswer) {
+    if ('speechSynthesis' in window) speak('语音作答已打开，测试时请说上下左右');
+    toast('语音作答已打开：测试时说「上 / 下 / 左 / 右」');
+  } else {
+    stopVoiceAnswer();
+  }
 });
 $('#segNearDist').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-near]');
