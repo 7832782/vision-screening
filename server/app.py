@@ -24,13 +24,11 @@ import os
 import socket
 import time
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 try:  # python server/app.py
     from model_paths import PROJECT_DIR, ensure_models
