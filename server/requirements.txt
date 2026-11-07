@@ -1,9 +1,0 @@
-fastapi>=0.110
-uvicorn[standard]>=0.29
-python-multipart>=0.0.9
-numpy>=1.26
-sherpa-onnx>=1.12
-pypinyin>=0.50
-soundfile>=0.12
-mediapipe>=0.10.14
-opencv-python-headless>=4.9
