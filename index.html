@@ -210,9 +210,12 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 .pill.good{background:#e6f2ee;color:var(--good)}
 .pill.watch{background:#fdf0e2;color:var(--warn)}
 .pill.refer{background:#fbe9e7;color:var(--bad)}
+.pill.limit{background:#e8edf5;color:#3c5a7a}
 .advice{border-left:6px solid var(--accent);background:#fff;border-radius:16px;padding:18px 20px}
 .advice.watch{border-color:var(--warn)}
 .advice.refer{border-color:var(--bad)}
+.advice.limit{border-color:#3c5a7a}
+.res-note{color:var(--muted);font-size:.82em;margin-top:8px;line-height:1.45}
 .disclaimer{font-size:.8em;color:var(--muted);background:#efece2;border-radius:14px;padding:14px 16px}
 
 /* ---------- 历史 ---------- */
@@ -387,6 +390,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <p><strong>logMAR</strong>：0 最好，<strong>越大越差</strong>；每 0.1 大约相当于视力表差一行。0 = 1.0，0.3 = 0.5，0.6 = 0.25，1.0 = 0.1。</p>
         <p><strong>6/24</strong>：Snellen 分数，正常是 6/6；6/24 表示在 6 米处只能看清正常眼在 24 米处能看清的视标。</p>
         <p><strong>分级参考</strong>：小数视力 ≥0.63（logMAR ≤0.2）为正常范围；0.4–0.5（logMAR 0.3–0.4）为略低；≤0.32（logMAR ≥0.5）为明显下降。分级用于提示是否该去眼科检查，<strong>不是医学诊断</strong>。</p>
+        <p><strong>看到「≥0.20 · 受屏幕限制」？</strong>这不是说你的视力只有 0.20，而是这块屏幕在当前距离最高只能显示到 0.20；你全答对也只能到这里，实际视力可能更好。近距请换手机/平板或 4K 屏。</p>
         <p class="muted">同一只眼在不同光线、距离、疲劳状态下会有一两行差异；如果结果异常，请到医院眼科复查。</p>
       </div>
     </details>
@@ -923,7 +927,8 @@ function intermission(eye, res){
 function describeResult(r){
   if (!r) return '—';
   if (r.worse) return '看不见最大的 E（低于 0.1）';
-  return `小数视力 ${r.decimal} · logMAR ${r.logMAR.toFixed(1)}` + (r.atCap ? '（已到本机上限）' : '');
+  if (r.atCap) return `小数视力 ≥ ${r.decimal}（本机屏幕上限）`;
+  return `小数视力 ${r.decimal} · logMAR ${r.logMAR.toFixed(1)}`;
 }
 
 /* =====================================================================
@@ -934,7 +939,7 @@ function renderSetup(type){
   const distM = isFar ? (settings.distanceM || 2) : settings.nearDistance / 100;
   const cap = maxRenderableIndex(distM);
   const capWarn = LEVELS[cap] > 0.3
-    ? `<p class="calib-warn">提示：这块屏幕的分辨率有限，在 ${isFar ? distM + ' 米' : settings.nearDistance + ' 厘米'} 处最高只能测到小数视力 <strong>${DECIMAL[cap]}</strong>。更好的视力会被记为「已达本机上限」。</p>`
+    ? `<div class="calib-warn"><strong>这台屏幕在当前距离最多只能测到小数视力 ${DECIMAL[cap]}</strong>（受屏幕像素密度限制）。即使你全部答对，结果也只会显示「≥${DECIMAL[cap]} · 受屏幕限制」，不代表真实视力。建议换更高分辨率的手机/平板或 4K 屏；远距 2 米一般不受影响。</div>`
     : '';
   $('#setupTitle').textContent = isFar
     ? `远距离视力测试（${settings.distanceM || 2} 米）`
@@ -1054,21 +1059,36 @@ function finishSession(){
 /* =====================================================================
    12. 结果
    ===================================================================== */
-function tierOf(logMAR, worse){
+function tierOf(logMAR, worse, atCap){
+  if (atCap) return 'limit';
   if (worse) return 'refer';
   if (logMAR <= 0.2) return 'good';
   if (logMAR <= 0.4) return 'watch';
   return 'refer';
 }
 function tierLabel(tier){
-  return tier === 'good' ? '正常范围' : tier === 'watch' ? '略低于正常' : '明显下降';
+  return tier === 'good' ? '正常范围'
+       : tier === 'watch' ? '略低于正常'
+       : tier === 'limit' ? '受屏幕限制'
+       : '明显下降';
 }
 function adviceFor(type, results){
   const vals = Object.values(results);
   const anyWorse = vals.some(v => v.worse);
+  const capVals = vals.filter(v => v.atCap);
+  const isNear = type === 'near';
+
+  if (capVals.length) {
+    const capText = [...new Set(capVals.map(v => v.decimal))].join(' / ');
+    return { tier:'limit', title:`这台屏幕只能测到 ${capText}，不能代表实际视力`,
+      speech:'这次结果受屏幕分辨率限制，不能代表实际视力。',
+      body:`你全部答对也只能停在这里：这台设备在当前距离最高只能显示到小数视力 <strong>${capText}</strong>，` +
+           `再小的视标受屏幕像素密度限制已经画不准了。<strong>实际视力可能比这个数好</strong>。` +
+           `${isNear ? '近距测试请换<strong>手机 / 平板</strong>（PPI 更高）或 4K 屏' : '请换更高分辨率的屏幕'}；远距 2 米测试一般不受影响。` };
+  }
+
   const worst = vals.reduce((m, v) => Math.max(m, v.worse ? 1.1 : v.logMAR), -1);
   const tier = anyWorse ? 'refer' : (worst <= 0.2 ? 'good' : worst <= 0.4 ? 'watch' : 'refer');
-  const isNear = type === 'near';
 
   if (tier === 'good') {
     return { tier, title:'视力看起来不错', speech:'视力看起来不错，继续保持定期检查。',
@@ -1100,16 +1120,20 @@ function renderResult(type, results){
   $('#resultGrid').innerHTML = eyes.map(e => {
     const r = results[e.key];
     if (!r) return '';
-    const tier = tierOf(r.logMAR, r.worse);
-    const big = r.worse ? '<0.1' : r.decimal;
+    const tier = tierOf(r.logMAR, r.worse, r.atCap);
+    const big = r.worse ? '<0.1' : r.atCap ? `≥${r.decimal}` : r.decimal;
     const sub = r.worse ? 'logMAR ≥ 1.0 · 低于 6/60'
-              : `logMAR ${r.logMAR.toFixed(1)} · ${r.snellen}`
-                + (r.atCap ? ' · 已达本机上限' : '');
+              : r.atCap ? `本机可测上限 · logMAR ${r.logMAR.toFixed(1)} · ${r.snellen}`
+              : `logMAR ${r.logMAR.toFixed(1)} · ${r.snellen}`;
+    const note = r.atCap
+      ? `<div class="res-note">不是你的视力只有 ${r.decimal}，而是这块屏幕在当前距离最高只能显示到这里；实际视力可能更好。</div>`
+      : '';
     return `<div class="res-card">
       <div class="res-eye">${e.label}</div>
       <div class="res-big">${big}</div>
       <div class="res-sub">小数视力 <strong>${big}</strong> · ${sub}</div>
       <div class="pill ${tier}">${tierLabel(tier)}</div>
+      ${note}
     </div>`;
   }).join('');
 
@@ -1141,7 +1165,8 @@ function renderSettings(){
   if (capEl) {
     const far = maxRenderableIndex(settings.distanceM || 2);
     const near = maxRenderableIndex(settings.nearDistance / 100);
-    capEl.textContent = `远距最高 ${DECIMAL[far]}（logMAR ${LEVELS[far].toFixed(1)}）· 近距最高 ${DECIMAL[near]}（logMAR ${LEVELS[near].toFixed(1)}）`;
+    const nearNote = LEVELS[near] > 0.3 ? '（近距分辨率不足，建议用手机/平板）' : '';
+    capEl.textContent = `远距最高 ${DECIMAL[far]}（logMAR ${LEVELS[far].toFixed(1)}）· 近距最高 ${DECIMAL[near]}（logMAR ${LEVELS[near].toFixed(1)}）${nearNote}`;
   }
 }
 function renderHistory(){
@@ -1154,7 +1179,8 @@ function renderHistory(){
     const label = item.type === 'distance' ? '远距' : '近距';
     const nums = Object.entries(item.results).map(([k, v]) => {
       const nm = k === 'right' ? '右' : k === 'left' ? '左' : '双';
-      return `${nm} ${v.worse ? '<0.1' : v.decimal}`;
+      const value = v.worse ? '<0.1' : v.atCap ? `≥${v.decimal}` : v.decimal;
+      return `${nm} ${value}`;
     }).join(' / ');
     return `<div class="hist-item"><div><strong>${label}</strong> ${nums}</div><div class="muted">${when}</div></div>`;
   }).join('');
