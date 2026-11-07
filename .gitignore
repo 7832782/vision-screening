@@ -1,3 +1,5 @@
 __pycache__/
 *.pdf
 tools/convert_pdf.py
+shots/convert_pdf.py
+
