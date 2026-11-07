@@ -129,6 +129,18 @@ li{margin:.35em 0}
 input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:pointer}
 .calib-warn{background:#fdf0e2;color:var(--warn);border-radius:12px;padding:10px 14px;font-size:.85em}
 
+/* ---------- 语音验证 ---------- */
+.verify-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.verify-tile{
+  min-height:118px;display:grid;place-items:center;border-radius:22px;
+  background:#fff;border:2px solid var(--line);color:#9aa3af;
+  font-size:clamp(40px,9vw,68px);font-weight:800;transition:transform .12s,background .12s,color .12s;
+  cursor:pointer;
+}
+.verify-tile.hit{background:var(--accent);border-color:var(--accent);color:#fff;transform:scale(1.03)}
+.verify-tile.weak{background:#fdf0e2;border-color:var(--warn);color:var(--warn)}
+.verify-tile.miss{background:#fbe9e7;border-color:#e6c9c5;color:var(--bad)}
+
 /* ---------- 设置 ---------- */
 .set-row{
   display:flex;align-items:center;justify-content:space-between;gap:14px;
@@ -398,6 +410,36 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   </div>
 </section>
 
+<!-- ==================== 语音验证 ==================== -->
+<section class="screen" data-screen="verify">
+  <div class="wrap">
+    <h2>试一试语音</h2>
+    <div class="card small">
+      <p>对着设备说「上 / 下 / 左 / 右」，<strong>说到哪个方向，哪个方块就亮</strong>。</p>
+      <p class="muted" id="verifyInfo">正在听…</p>
+    </div>
+    <div class="verify-grid" id="verifyGrid">
+      <div class="verify-tile" data-word="up">上</div>
+      <div class="verify-tile" data-word="down">下</div>
+      <div class="verify-tile" data-word="left">左</div>
+      <div class="verify-tile" data-word="right">右</div>
+    </div>
+    <div class="card small">
+      <div style="font-weight:700">识别不准？点一下正确的方向，把它记进模板</div>
+      <div class="muted small" id="verifyModel" style="margin-top:4px">—</div>
+      <div class="seg" id="verifySens" style="margin-top:10px">
+        <button data-sens="0.8">保守</button>
+        <button data-sens="1">标准</button>
+        <button data-sens="1.25">灵敏</button>
+      </div>
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn secondary" data-go="enroll">全部重录</button>
+      <button class="btn" data-action="verify-done">好了</button>
+    </div>
+  </div>
+</section>
+
 <!-- ==================== 设置 ==================== -->
 <section class="screen" data-screen="settings">
   <div class="wrap">
@@ -415,12 +457,11 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <button class="switch" id="swOfflineVoice" role="switch" aria-checked="false"></button>
       </div>
       <div class="set-row">
-        <div><div style="font-weight:700">录制方向词</div><div class="muted small" id="tplStatus">未录制</div></div>
-        <button class="btn secondary" data-go="enroll" style="flex:none;min-height:52px">去录制</button>
-      </div>
-      <div class="set-row">
-        <div><div style="font-weight:700">语音作答（Web Speech）</div><div class="muted small" id="voiceAnswerHint">测试时直接说「上 / 下 / 左 / 右」，不用碰屏幕</div></div>
-        <button class="switch" id="swVoiceAnswer" role="switch" aria-checked="false"></button>
+        <div><div style="font-weight:700">录制 / 试音</div><div class="muted small" id="tplStatus">未录制</div></div>
+        <div class="row" style="flex:none;gap:8px">
+          <button class="btn secondary" data-go="enroll" style="min-height:52px">录制</button>
+          <button class="btn secondary" data-go="verify" style="min-height:52px">试音</button>
+        </div>
       </div>
       <div class="set-row">
         <div><div style="font-weight:700">按键音</div><div class="muted small">每次作答给一个轻提示音</div></div>
@@ -512,7 +553,7 @@ const store = {
   del(k){ try { localStorage.removeItem(k); } catch(e){} },
 };
 
-const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2, voiceAnswer: false, offlineVoice: false };
+const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2, offlineVoice: false };
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.get('vs.settings', {}));
 
 // 校准值：每 1 个 CSS 像素对应多少毫米
@@ -559,7 +600,7 @@ function speak(text){
     u.onerror = clearBusy;
     window.speechSynthesis.speak(u);
     clearTimeout(ttsTimer);
-    ttsTimer = setTimeout(clearBusy, 9000);   // 兜底：某些浏览器不触发 onend
+    ttsTimer = setTimeout(clearBusy, 5000);   // 兜底：某些浏览器不触发 onend
   } catch(e) { ttsBusy = false; }
 }
 if ('speechSynthesis' in window) {
@@ -568,27 +609,8 @@ if ('speechSynthesis' in window) {
 }
 
 /* =====================================================================
-   3.5 语音作答（实验）：说「上 / 下 / 左 / 右」直接作答
-   依赖 Web Speech API（需要 HTTPS + 麦克风权限；Chrome 的识别服务在境外）
+   3.5 语音作答入口（真正干活的是 3.6 的离线识别）
    ===================================================================== */
-const SR_CTOR = () => window.SpeechRecognition || window.webkitSpeechRecognition || null;
-let recog = null;
-let recogRunning = false;
-
-function voiceAnswerSupported(){ return !!SR_CTOR() && window.isSecureContext; }
-
-/* 从识别文本里取方向词；太长的句子（多半是在聊天）不当作答 */
-function parseSpokenDir(text){
-  const t = String(text || '').replace(/[，。！？、,.\s]/g, '');
-  if (!t || t.length > 8) return null;
-  let best = null, bestIdx = -1;
-  for (const [w, d] of [['上', 'up'], ['下', 'down'], ['左', 'left'], ['右', 'right']]) {
-    const i = t.lastIndexOf(w);
-    if (i > bestIdx) { bestIdx = i; best = d; }
-  }
-  return bestIdx >= 0 ? best : null;
-}
-
 function toast(msg, ms = 2800){
   let el = document.getElementById('toast');
   if (!el) {
@@ -611,70 +633,9 @@ function setMicBadge(text){
 }
 
 function startVoiceAnswer(){
-  if (settings.offlineVoice) { ovStartListening(); return; }
-  startWebSpeechAnswer();
+  if (settings.offlineVoice) ovStartListening();
 }
-
-function startWebSpeechAnswer(){
-  if (!settings.voiceAnswer) return;
-  if (!voiceAnswerSupported()) {
-    toast('这个浏览器不支持语音识别（需要 HTTPS + Chrome/Safari）');
-    return;
-  }
-  try {
-    if (!recog) {
-      const Ctor = SR_CTOR();
-      if (!Ctor) return;
-      recog = new Ctor();
-      recog.lang = 'zh-CN';
-      recog.continuous = true;
-      recog.interimResults = true;
-      recog.maxAlternatives = 3;
-
-      recog.onstart = () => { recogRunning = true; setMicBadge('🎤'); };
-      recog.onresult = (ev) => {
-        if (ttsBusy) return;        // 设备正在播报，忽略（避免自听）
-        let txt = '';
-        for (let i = ev.resultIndex; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
-        const dir = parseSpokenDir(txt);
-        if (!dir) return;
-        setMicBadge('🎤 ' + { up:'上', down:'下', left:'左', right:'右' }[dir]);
-        setTimeout(() => { if (recogRunning) setMicBadge('🎤'); }, 700);
-        answer(dir);
-      };
-      recog.onerror = (ev) => {
-        const err = ev.error;
-        recogRunning = false;
-        setMicBadge(null);
-        if (err === 'no-speech' || err === 'aborted') return;
-        if (err === 'not-allowed' || err === 'service-not-allowed') {
-          settings.voiceAnswer = false;
-          store.set('vs.settings', settings);
-          renderSettings();
-          toast('麦克风权限被拒绝，已关闭语音作答');
-        } else if (err === 'network') {
-          toast('连不上语音识别服务（Chrome 依赖 Google 服务），请改用方向键或滑动');
-        } else {
-          toast('语音识别出错：' + err);
-        }
-      };
-      recog.onend = () => {
-        recogRunning = false;
-        const inTest = document.querySelector('[data-screen="test"]')?.classList.contains('active');
-        if (settings.voiceAnswer && session && !session.aborted && inTest) {
-          try { recog.start(); } catch (e) {}
-        } else {
-          setMicBadge(null);
-        }
-      };
-    }
-    recog.start();
-  } catch (e) { /* 已经在跑了 */ }
-}
-
 function stopVoiceAnswer(){
-  try { recog && recog.stop(); } catch (e) {}
-  recogRunning = false;
   ovStopListening();
   setMicBadge(null);
 }
@@ -811,12 +772,49 @@ function ovCMN(frames) {
   });
 }
 
+/* ---------- 差分倒谱：对语速、拖音更稳 ---------- */
+function ovDelta(frames, N = 2) {
+  const T = frames.length, D = frames[0].length;
+  const out = [];
+  for (let t = 0; t < T; t++) {
+    const row = new Array(D).fill(0);
+    let denom = 0;
+    for (let n = 1; n <= N; n++) {
+      const a = frames[Math.min(T - 1, t + n)];
+      const b = frames[Math.max(0, t - n)];
+      for (let d = 0; d < D; d++) row[d] += n * (a[d] - b[d]);
+      denom += 2 * n * n;
+    }
+    for (let d = 0; d < D; d++) row[d] /= denom;
+    out.push(row);
+  }
+  return out;
+}
+
+/* ---------- 最终特征：12 维 MFCC（CMVN）+ 12 维差分 = 24 维 ---------- */
+function ovFeatures(samples) {
+  const mfcc = ovMFCC(samples);
+  if (mfcc.length < 3) return [];
+  const cmn = ovCMN(mfcc);                 // T × 12，已去掉 c0 并做方差归一
+  const d = ovDelta(cmn);
+  let s2 = 0, cnt = 0;
+  for (const row of d) for (const v of row) { s2 += v * v; cnt++; }
+  const scale = cnt ? 1 / (Math.sqrt(s2 / cnt) || 1) : 1;
+  return cmn.map((f, i) => f.concat(d[i].map(v => v * scale)));
+}
+
+/* 一段音频 → 特征（统一走能量裁剪，保证和模板尺度一致） */
+function ovAnalyze(audio) {
+  return ovFeatures(ovTrim(audio));
+}
+
 /* ---------- DTW：带 Sakoe-Chiba 带宽的欧氏距离 ---------- */
 function ovDTW(a, b) {
   const n = a.length, m = b.length;
   if (!n || !m) return Infinity;
   const dim = a[0].length;
-  const band = Math.max(10, Math.floor(Math.max(n, m) * 0.35));
+  // 带宽必须覆盖"长度差"，否则快说/慢说时路径根本到不了终点（会返回 Infinity）
+  const band = Math.abs(n - m) + Math.max(8, Math.floor(0.25 * Math.min(n, m)));
   const INF = 1e9;
   let prev = new Float32Array(m).fill(INF);
   let cur = new Float32Array(m);
@@ -906,6 +904,91 @@ function ovMicClose() {
   OV.ctx = OV.stream = OV.node = null;
 }
 
+/* ---------- 语音验证页：说到哪个亮哪个，识别不准可点选纠正 ---------- */
+let verifyState = { active: false, lastFeat: null, lastMatch: null };
+
+function openVerify() {
+  if (!ovLoadModel()) { toast('还没有录制方向词，先录一遍'); return; }
+  verifyState = { active: true, lastFeat: null, lastMatch: null };
+  // 进验证页先掐掉任何播报，避免 ttsBusy 把识别结果吞掉
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) {}
+  ttsBusy = false;
+  showScreen('verify');
+  renderVerifySens();
+  const info = $('#verifyInfo');
+  if (info) info.textContent = '正在听…说一个方向试试';
+  startVerifyListening();
+}
+
+function startVerifyListening() {
+  ovOnSegment = (audio) => {
+    if (ttsBusy) return;
+    const feat = ovAnalyze(audio);
+    if (feat.length < 6) return;
+    const m = ovMatch(feat);
+    if (DEBUG) window.__verifyDbg = { frames: feat.length, m };
+    verifyState.lastFeat = feat;
+    verifyState.lastMatch = m;
+    paintVerify(m);
+  };
+  ovMicOpen().then(() => {
+    OV.onChunk = ovFeed;
+    setMicBadge('🎤');
+  }).catch(e => toast('麦克风打不开：' + (e.message || e)));
+}
+
+function paintVerify(m) {
+  $$('.verify-tile').forEach(t => t.classList.remove('hit', 'weak'));
+  if (!m || !m.word) return;
+  const tile = document.querySelector(`.verify-tile[data-word="${m.word}"]`);
+  if (tile) tile.classList.add(m.ok ? 'hit' : 'weak');
+  const info = $('#verifyInfo');
+  if (info) {
+    info.textContent = m.ok
+      ? `识别为「${WORD_CN[m.word]}」 · 距离 ${m.dist.toFixed(2)} / 阈值 ${m.thr.toFixed(2)}`
+      : `不太确定，最接近「${WORD_CN[m.word]}」 · 距离 ${m.dist.toFixed(2)} / 阈值 ${m.thr.toFixed(2)} —— 可点正确方向补一条`;
+  }
+  if (m.ok) {
+    beep(880, .05);
+    setTimeout(() => {
+      const t = document.querySelector('.verify-tile.hit');
+      if (t) t.classList.remove('hit');
+    }, 800);
+  }
+}
+
+function addTemplate(word, feat) {
+  const model = ovLoadModel();
+  if (!model || !feat) return;
+  const arr = model.tpl[word] || (model.tpl[word] = []);
+  if (arr.length >= 8) arr.shift();
+  arr.push(feat.map(f => f.map(v => Math.round(v * 100) / 100)));
+  recomputeModel(model);
+  ovSaveModel(model);
+  verifyState.lastFeat = null;
+  beep(660, .07);
+  toast(`已把这次录音记到「${WORD_CN[word]}」`);
+  renderVerifySens();
+}
+
+function renderVerifySens() {
+  const model = ovLoadModel();
+  if (!model) return;
+  const sens = model.sens || 1;
+  $$('#verifySens button').forEach(b => b.setAttribute('aria-pressed', String(Number(b.dataset.sens) === sens)));
+  const counts = WORDS.map(w => (model.tpl[w] || []).length);
+  const el = $('#verifyModel');
+  if (el) {
+    el.textContent = `每词模板 ${Math.min(...counts)}–${Math.max(...counts)} 条 · 同词 ${model.intra.toFixed(2)} / 异词 ${model.cross.toFixed(2)} · 阈值 ${model.thr.toFixed(2)}`;
+  }
+}
+
+function closeVerify() {
+  verifyState.active = false;
+  ovStopListening();
+  setMicBadge(null);
+}
+
 /* ---------- 模板存取 ---------- */
 function ovLoadModel() { return store.get('vs.voiceModel', null); }
 function ovSaveModel(model) { store.set('vs.voiceModel', model); }
@@ -933,17 +1016,26 @@ function ovVadProcess(frame) {
     if (db < VAD.level + 6) VAD.level = 0.95 * VAD.level + 0.05 * db;
     VAD.pre.push(frame);
     if (VAD.pre.length > 30) VAD.pre.shift();
-    if (db > VAD.level + 12) {
-      VAD.utt = VAD.pre.slice();
-      VAD.silence = 0;
+    VAD.lastDb = db;
+    // 阈值从 +12dB 降到 +8dB，并要连续 2 帧（20ms）才算开口
+    if (db > VAD.level + 8) {
+      VAD.hits = (VAD.hits || 0) + 1;
+      if (VAD.hits >= 2) {
+        VAD.utt = VAD.pre.slice();
+        VAD.silence = 0;
+        VAD.hits = 0;
+      }
+    } else {
+      VAD.hits = 0;
     }
     return;
   }
 
   VAD.utt.push(frame);
-  if (db < VAD.level + 8) VAD.silence++; else VAD.silence = 0;
+  VAD.lastDb = db;
+  if (db < VAD.level + 4) VAD.silence++; else VAD.silence = 0;
 
-  if (VAD.silence > 12 || VAD.utt.length > 160) {
+  if (VAD.silence > 12 || VAD.utt.length > 200) {
     const seg = VAD.utt.slice(0, Math.max(1, VAD.utt.length - VAD.silence));
     VAD.utt = null;
     VAD.pre = [];
@@ -952,6 +1044,7 @@ function ovVadProcess(frame) {
     const flat = new Float32Array(n);
     let p = 0;
     for (const f of seg) { flat.set(f, p); p += f.length; }
+    if (DEBUG) (window.__segLog = window.__segLog || []).push({ len: seg.length, dur: +(seg.length / 100).toFixed(2), t: Date.now() });
     if (n > 160 * 8 && ovOnSegment) ovOnSegment(flat);
   }
 }
@@ -972,13 +1065,12 @@ function ovFeed(chunk, sampleRate) {
 }
 
 /* ---------- 匹配 ---------- */
-function ovMatch(frames) {
+function ovMatch(feat) {
   const model = ovLoadModel();
-  if (!model || !frames.length) return null;
-  const feat = ovCMN(frames);
+  if (!model || !feat || !feat.length) return null;
   if (feat.length < 6) return null;
 
-  // 先按"词"聚合：同一个词的两个模板取最近的那个
+  // 先按"词"聚合：同一个词的多个模板取最近的那个
   const perWord = {};
   for (const w of WORDS) {
     let bestD = Infinity;
@@ -988,9 +1080,12 @@ function ovMatch(frames) {
   const ranked = Object.entries(perWord).sort((a, b) => a[1] - b[1]);
   const [word, dist] = ranked[0];
   const second = ranked.length > 1 ? ranked[1][1] : Infinity;
-  const thr = model.thr, margin = model.margin;
+
+  const sens = model.sens || 1;
+  const thr = model.thr * sens;
+  const margin = model.margin / sens;
   const ok = dist < thr && (second === Infinity || second - dist > margin);
-  return { word, dist, second, thr, ok, perWord };
+  return { word, dist, second, thr, margin, sens, ok, perWord };
 }
 
 /* ---------- 开始/停止监听 ---------- */
@@ -1001,8 +1096,8 @@ function ovStartListening() {
   ovOnSegment = (audio) => {
     if (ttsBusy || !session || session.aborted) return;
     // 关键：识别时也要做能量裁剪，去掉前后静音，否则片段比模板长、距离被拉大
-    const frames = ovMFCC(ovTrim(audio));
-    const m = ovMatch(frames);
+    const feat = ovAnalyze(audio);
+    const m = ovMatch(feat);
     if (!m) return;
     if (DEBUG) window.__lastMatch = { word: m.word, dist: +m.dist.toFixed(2), thr: +m.thr.toFixed(2), ok: m.ok };
     if (m.ok) {
@@ -1082,13 +1177,12 @@ function enrollHoldStop() {
 
   const sr = OV.ctx ? OV.ctx.sampleRate : 48000;
   const x = ovResample(all, sr);
-  const trimmed = ovTrim(x);
-  const frames = ovCMN(ovMFCC(trimmed));
-  if (frames.length < 8) { toast('太短了，说长一点点'); return; }
-  if (frames.length > 200) { toast('太长了，短促一点'); return; }
+  const feat = ovAnalyze(x);
+  if (feat.length < 8) { toast('太短了，说长一点点'); return; }
+  if (feat.length > 200) { toast('太长了，短促一点'); return; }
 
   const w = enroll.seq[enroll.i];
-  enroll.data[w].push(frames.map(f => f.map(v => Math.round(v * 100) / 100)));
+  enroll.data[w].push(feat.map(f => f.map(v => Math.round(v * 100) / 100)));
   enroll.i++;
   beep(880, .06);
 
@@ -1101,25 +1195,39 @@ function finishEnroll() {
   for (const w of WORDS) {
     if (!tpl[w] || tpl[w].length < 2) { toast('录制不完整，请重新来一次'); openEnroll(); return; }
   }
-  const intra = [], cross = [];
-  for (const w of WORDS) intra.push(ovDTW(tpl[w][0], tpl[w][1]));
-  for (const a of WORDS) for (const b of WORDS) {
-    if (a !== b) cross.push(ovDTW(tpl[a][0], tpl[b][0]));
-  }
-  const mean = arr => arr.reduce((s, v) => s + v, 0) / arr.length;
-  const mi = mean(intra), mc = mean(cross);
-  const thr = Math.max(0.05, Math.min(mi * 1.9, mc * 0.75));
-  const margin = Math.max(0.02, thr * 0.18);
-  const model = { v: 1, tpl, thr, margin, at: Date.now(), intra: mi, cross: mc };
+  const model = { v: 2, tpl, sens: 1, at: Date.now() };
+  recomputeModel(model);
   ovSaveModel(model);
 
   enroll = null;
   if (DEBUG) window.__enroll = null;
   beep(660, .1);
-  speak('录制完成');
   renderSettings();
-  showScreen('settings');
-  toast(`录制完成：同词距离 ${mi.toFixed(2)}，异词距离 ${mc.toFixed(2)}，阈值 ${thr.toFixed(2)}`);
+  openVerify();          // 录完直接进验证页
+}
+
+/* 根据模板之间的同词/异词距离，自动定阈值 */
+function recomputeModel(model) {
+  const intra = [], cross = [];
+  for (const w of WORDS) {
+    const arr = model.tpl[w] || [];
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < arr.length; j++) intra.push(ovDTW(arr[i], arr[j]));
+    }
+  }
+  for (const a of WORDS) for (const b of WORDS) {
+    if (a === b) continue;
+    for (const x of model.tpl[a] || []) for (const y of model.tpl[b] || []) cross.push(ovDTW(x, y));
+  }
+  const mean = arr => arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
+  const mi = mean(intra) || 0.1;
+  const mc = mean(cross) || 1;
+  model.intra = mi;
+  model.cross = mc;
+  model.thr = Math.max(0.05, Math.min(mi * 2.2, mc * 0.8));
+  model.margin = Math.max(0.02, model.thr * 0.15);
+  if (!model.sens) model.sens = 1;
+  return model;
 }
 
 /* =====================================================================
@@ -1131,6 +1239,8 @@ function showScreen(name){
   $$('.screen').forEach(s => s.classList.toggle('active', s.dataset.screen === name));
   document.title = TITLES[name] || '视力筛查';
   window.scrollTo(0, 0);
+  // 离开语音验证页就把麦克风关掉
+  if (name !== 'verify' && verifyState && verifyState.active) closeVerify();
 }
 
 /* =====================================================================
@@ -1541,7 +1651,7 @@ async function startSession(){
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
-  if (settings.offlineVoice || settings.voiceAnswer) startVoiceAnswer();
+  if (settings.offlineVoice) startVoiceAnswer();
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;
@@ -1657,22 +1767,20 @@ function renderResult(type, results){
 function renderSettings(){
   $('#swVoice').setAttribute('aria-checked', String(!!settings.voice));
   $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
-  const swVA = $('#swVoiceAnswer');
-  if (swVA) swVA.setAttribute('aria-checked', String(!!settings.voiceAnswer));
   const swOF = $('#swOfflineVoice');
   if (swOF) swOF.setAttribute('aria-checked', String(!!settings.offlineVoice));
   const tplStatus = $('#tplStatus');
   if (tplStatus) {
     const model = ovLoadModel();
     tplStatus.textContent = model
-      ? `已录制 4 个词 × 2 遍（同词距离 ${model.intra.toFixed(2)}，异词距离 ${model.cross.toFixed(2)}）`
+      ? `已录制（每词 ${Math.min(...WORDS.map(w => (model.tpl[w] || []).length))}–${Math.max(...WORDS.map(w => (model.tpl[w] || []).length))} 条模板，阈值 ${model.thr.toFixed(2)}）`
       : '未录制 —— 离线语音需要先录一遍';
   }
-  const vh = $('#voiceAnswerHint');
-  if (vh) {
-    vh.textContent = voiceAnswerSupported()
-      ? '测试时直接说「上 / 下 / 左 / 右」，不用碰屏幕'
-      : '此浏览器不支持语音识别；可用方向键 / 滑动 / 蓝牙遥控器';
+  const offHint = $('#offlineHint');
+  if (offHint) {
+    offHint.textContent = ovLoadModel()
+      ? '说「上 / 下 / 左 / 右」直接作答，不联网'
+      : '还没录制方向词：先点「录制」念两遍「上 下 左 右」';
   }
   $$('#segNearDist button').forEach(b => {
     b.setAttribute('aria-pressed', String(Number(b.dataset.near) === settings.nearDistance));
@@ -1747,6 +1855,7 @@ document.addEventListener('click', (e) => {
     if (go === 'home') { pendingStart = null; }
     if (go === 'calib') { openCalib(); return; }
     if (go === 'enroll') { openEnroll(); return; }
+    if (go === 'verify') { openVerify(); return; }
     if (go === 'settings') { renderSettings(); }
     if (go === 'history') { renderHistory(); }
     if (go === 'home') { showScreen('home'); return; }
@@ -1779,6 +1888,11 @@ document.addEventListener('click', (e) => {
         break;
       }
       case 'setup-start': startSession(); break;
+      case 'verify-done':
+        closeVerify();
+        renderSettings();
+        showScreen('settings');
+        break;
       case 'result-again': beginFlow(session ? session.type : 'near'); break;
       case 'fullscreen': toggleFullscreen(); break;
       case 'clear-history':
@@ -1927,25 +2041,29 @@ $('#swOfflineVoice')?.addEventListener('click', () => {
     return;
   }
   settings.offlineVoice = !settings.offlineVoice;
-  if (settings.offlineVoice) settings.voiceAnswer = false;   // 两种语音互斥
   store.set('vs.settings', settings);
   renderSettings();
   if (settings.offlineVoice) toast('离线语音已打开：测试时说「上 / 下 / 左 / 右」');
 });
-$('#swVoiceAnswer')?.addEventListener('click', () => {
-  if (!settings.voiceAnswer && !voiceAnswerSupported()) {
-    toast('这个浏览器不支持语音识别，可以改用方向键、滑动或蓝牙遥控器');
-    return;
-  }
-  settings.voiceAnswer = !settings.voiceAnswer;
-  store.set('vs.settings', settings);
-  $('#swVoiceAnswer').setAttribute('aria-checked', String(settings.voiceAnswer));
-  if (settings.voiceAnswer) {
-    if ('speechSynthesis' in window) speak('语音作答已打开，测试时请说上下左右');
-    toast('语音作答已打开：测试时说「上 / 下 / 左 / 右」');
-  } else {
-    stopVoiceAnswer();
-  }
+
+/* 验证页：点方块 = 把刚才那条录音记到这个词 */
+$('#verifyGrid')?.addEventListener('click', (e) => {
+  const tile = e.target.closest('.verify-tile');
+  if (!tile) return;
+  if (!verifyState.lastFeat) { toast('先说一次，再点一下正确的方向'); return; }
+  addTemplate(tile.dataset.word, verifyState.lastFeat);
+});
+
+$('#verifySens')?.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sens]');
+  if (!b) return;
+  const model = ovLoadModel();
+  if (!model) return;
+  model.sens = Number(b.dataset.sens);
+  ovSaveModel(model);
+  renderVerifySens();
+  beep(660, .05);
+  toast(`灵敏度：${b.textContent}（阈值 ${(model.thr * model.sens).toFixed(2)}）`);
 });
 
 /* 录制：按住说话 */

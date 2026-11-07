@@ -3,3 +3,4 @@ __pycache__/
 tools/convert_pdf.py
 shots/convert_pdf.py
 
+_test/
