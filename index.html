@@ -1,0 +1,1313 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#f7f4ed">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="视力筛查">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>视力筛查 · 老人友好版</title>
+<style>
+/* ============================================================
+   设计基调：暖白底 + 墨黑字 + 墨绿主色，大字号、大按钮、高对比
+   目标：老年人单手可操作；手机竖屏 / 一体机横屏共用一套
+   ============================================================ */
+:root{
+  --ink:#14161a;
+  --muted:#5b6472;
+  --bg:#f7f4ed;
+  --card:#ffffff;
+  --line:#e2dccd;
+  --accent:#0d6b5c;
+  --accent-dark:#084d42;
+  --warn:#a8541c;
+  --bad:#a3241c;
+  --good:#0d6b5c;
+  --radius:20px;
+  --shadow:0 2px 16px rgba(20,22,26,.08);
+  --fs:clamp(17px, 1.05vw + 13px, 25px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg); color:var(--ink); font-size:var(--fs); line-height:1.55;
+  font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  overscroll-behavior:none;
+}
+button{font-family:inherit}
+
+/* ---------- 屏幕容器 ---------- */
+.screen{
+  display:none; position:fixed; inset:0; overflow-y:auto;
+  padding:calc(14px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling:touch;
+}
+.screen.active{display:flex;flex-direction:column}
+.wrap{width:min(940px,100%);margin:0 auto;display:flex;flex-direction:column;min-height:100%;gap:14px}
+
+/* ---------- 通用组件 ---------- */
+.btn{
+  display:flex; align-items:center; justify-content:center; gap:.45em;
+  min-height:64px; padding:.65em 1.15em; border-radius:var(--radius);
+  border:2px solid transparent; background:var(--accent); color:#fff;
+  font-size:1.08em; font-weight:700; cursor:pointer; box-shadow:var(--shadow);
+  transition:transform .06s ease, background .15s ease;
+}
+.btn:active{transform:scale(.985)}
+.btn.big{min-height:92px;font-size:1.3em;border-radius:24px}
+.btn.secondary{background:#fff;color:var(--ink);border-color:var(--line)}
+.btn.ghost{background:transparent;color:var(--muted);box-shadow:none;border-color:transparent}
+.btn.danger{background:#fff;color:var(--bad);border-color:#e6c9c5}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>.btn{flex:1 1 200px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px 22px;box-shadow:var(--shadow)}
+.muted{color:var(--muted)}
+.small{font-size:.86em}
+.center{text-align:center}
+h1{font-size:clamp(28px,3.2vw+14px,44px);line-height:1.2;margin:.1em 0}
+h2{font-size:clamp(22px,1.8vw+14px,32px);margin:.1em 0}
+h3{font-size:clamp(19px,1.2vw+13px,26px);margin:.1em 0}
+p{margin:.5em 0}
+ul{padding-left:1.3em;margin:.5em 0}
+li{margin:.35em 0}
+
+/* ---------- 首页 ---------- */
+.hero{padding:6vh 0 2vh;text-align:center}
+.hero .logo{
+  width:min(120px,22vw);height:min(120px,22vw);margin:0 auto 12px;border-radius:32px;
+  background:linear-gradient(160deg,#0d6b5c,#0a4d42);color:#fff;
+  display:grid;place-items:center;font-size:min(52px,10vw);font-weight:800;
+  box-shadow:0 10px 30px rgba(13,107,92,.28);
+}
+.hero p{color:var(--muted)}
+
+.cards{display:grid;grid-template-columns:1fr;gap:14px}
+@media (orientation:landscape) and (min-width:820px){
+  .cards{grid-template-columns:1fr 1fr}
+}
+.big-card{
+  background:var(--card);border:2px solid var(--line);border-radius:26px;
+  padding:24px; cursor:pointer; text-align:left; box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:6px; min-height:150px;
+}
+.big-card:active{border-color:var(--accent)}
+.big-card .ico{font-size:1.9em;line-height:1}
+.big-card .t{font-size:1.22em;font-weight:800}
+.big-card .s{color:var(--muted);font-size:.92em}
+.big-card .meta{margin-top:auto;color:var(--accent);font-weight:700;font-size:.9em}
+
+/* ---------- 校准 ---------- */
+.calib-stage{
+  position:relative;flex:none;height:170px;background:#111;border-radius:0;overflow:hidden;
+  touch-action:none;user-select:none;margin:0 -16px;
+}
+.calib-bar{position:absolute;top:62px;height:44px;background:#fff;border-radius:4px}
+.calib-handle{
+  position:absolute;top:6px;width:40px;height:40px;border-radius:12px;background:#ffd23f;
+  box-shadow:0 2px 10px rgba(0,0,0,.45);cursor:ew-resize;touch-action:none;
+}
+.calib-handle::after{
+  content:"";position:absolute;left:19px;top:40px;width:2px;height:100px;background:#ffd23f;
+  box-shadow:0 0 6px rgba(255,210,63,.8);
+}
+.obj-tabs{display:flex;flex-wrap:wrap;gap:8px}
+.obj-tab{
+  display:flex;flex-direction:column;gap:2px;align-items:flex-start;
+  padding:10px 14px;border-radius:14px;border:2px solid var(--line);background:#fff;
+  font-size:.9em;color:var(--ink);cursor:pointer;
+}
+.obj-tab span{color:var(--muted);font-size:.8em}
+.obj-tab[aria-pressed="true"]{border-color:var(--accent);background:#e9f3f0}
+.obj-tab[aria-pressed="true"] strong{color:var(--accent)}
+.calib-ctrl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.calib-ctrl .btn{min-height:76px;font-size:1.1em}
+.calib-num{display:grid;place-items:center;font-weight:800;font-size:1.05em;color:var(--muted)}
+input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:pointer}
+.calib-warn{background:#fdf0e2;color:var(--warn);border-radius:12px;padding:10px 14px;font-size:.85em}
+
+/* ---------- 设置 ---------- */
+.set-row{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  padding:16px 4px;border-bottom:1px solid var(--line);
+}
+.set-row:last-child{border-bottom:none}
+.switch{
+  position:relative;width:78px;height:44px;border-radius:22px;background:#ccc;
+  border:none;cursor:pointer;transition:background .18s;flex:none;
+}
+.switch::after{
+  content:"";position:absolute;top:4px;left:4px;width:36px;height:36px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3);transition:transform .18s;
+}
+.switch[aria-checked="true"]{background:var(--accent)}
+.switch[aria-checked="true"]::after{transform:translateX(34px)}
+.seg{display:flex;gap:8px}
+.seg button{min-height:52px;padding:0 18px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:.95em;font-weight:700;color:var(--ink);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ---------- 测试屏 ---------- */
+.screen[data-screen="test"]{padding:0;overflow:hidden;background:#fff;touch-action:none;user-select:none}
+#hud{
+  position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;
+  justify-content:space-between;padding:0 16px;color:#6b7280;font-size:.82em;z-index:5;
+}
+#hud strong{color:#111}
+#btnPause{
+  border:2px solid #e5e7eb;background:#fff;color:#374151;border-radius:14px;
+  min-height:40px;padding:0 16px;font-size:.95em;cursor:pointer;
+}
+#stage{
+  position:absolute;inset:56px 10px 112px;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+.crowd{display:inline-block;border:0 solid #000;line-height:0}
+.crowd svg{display:block}
+#answerbar{
+  position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(4,1fr);
+  gap:10px;padding:12px 12px calc(14px + env(safe-area-inset-bottom));
+}
+#answerbar[hidden]{display:none}
+#answerbar button{
+  min-height:82px;border-radius:18px;border:2px solid #e5e7eb;background:#fafafa;
+  font-size:1.9em;color:#111;cursor:pointer;line-height:1;
+}
+#answerbar button:active{background:#eceff1}
+
+/* 覆盖层：倒数、换眼、暂停 */
+#overlay{
+  position:absolute;inset:0;background:rgba(255,255,255,.97);z-index:20;
+  display:flex;align-items:center;justify-content:center;padding:24px;
+}
+#overlay[hidden]{display:none}
+.ov-card{max-width:640px;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
+.ov-num{font-size:clamp(70px,14vw,128px);font-weight:800;color:var(--accent);line-height:1}
+.ov-title{font-size:clamp(22px,2.4vw+12px,34px);font-weight:800}
+.ov-sub{color:var(--muted)}
+
+/* ---------- 结果 ---------- */
+.res-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@media (orientation:landscape) and (min-width:760px){.res-grid{grid-template-columns:1fr 1fr}}
+.res-card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
+.res-eye{font-weight:800;color:var(--muted);font-size:.95em}
+.res-big{font-size:clamp(44px,7vw,76px);font-weight:800;line-height:1.05;margin:.1em 0}
+.res-sub{color:var(--muted);font-size:.9em}
+.pill{display:inline-block;margin-top:10px;padding:.28em .8em;border-radius:999px;font-size:.86em;font-weight:800}
+.pill.good{background:#e6f2ee;color:var(--good)}
+.pill.watch{background:#fdf0e2;color:var(--warn)}
+.pill.refer{background:#fbe9e7;color:var(--bad)}
+.advice{border-left:6px solid var(--accent);background:#fff;border-radius:16px;padding:18px 20px}
+.advice.watch{border-color:var(--warn)}
+.advice.refer{border-color:var(--bad)}
+.disclaimer{font-size:.8em;color:var(--muted);background:#efece2;border-radius:14px;padding:14px 16px}
+
+/* ---------- 历史 ---------- */
+.hist-item{display:flex;justify-content:space-between;gap:12px;padding:14px 4px;border-bottom:1px solid var(--line);font-size:.94em}
+.hist-item:last-child{border-bottom:none}
+
+/* 横屏（一体机）微调 */
+@media (orientation:landscape) and (min-height:600px){
+  #hud{height:64px}
+  #stage{inset:64px 24px 132px}
+  #answerbar{padding:14px 40px 22px}
+  #answerbar button{min-height:92px}
+  .ov-card{max-width:900px}
+  .ov-title{font-size:clamp(30px,2.6vw+12px,46px)}
+  .ov-sub{font-size:1.25em}
+  .ov-num{font-size:clamp(90px,10vw,150px)}
+  .ov-card .btn.big{min-height:96px;font-size:1.4em}
+}
+@media (min-width:1000px){
+  #hudLeft{font-size:1.05em}
+  #hudRight{font-size:1.05em}
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== 欢迎 ==================== -->
+<section class="screen" data-screen="welcome">
+  <div class="wrap">
+    <div class="hero">
+      <div class="logo">E</div>
+      <h1>视力筛查</h1>
+      <p class="small">用手机或一体机，几分钟测一测远、近视力</p>
+    </div>
+    <div class="card small">
+      <p><strong>怎么用：</strong>坐好，屏幕亮度调到最大。看屏幕上的「E」，用<strong>手指滑动</strong>或<strong>按方向键</strong>回答它的开口朝哪边。看不清就猜一个。</p>
+      <p class="muted">本程序用于<strong>初步筛查</strong>，不是医疗诊断。看不清或结果异常，请到医院眼科检查。</p>
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn big" data-action="welcome-start">开始</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 首页 ==================== -->
+<section class="screen" data-screen="home">
+  <div class="wrap">
+    <div class="row" style="align-items:center;justify-content:space-between">
+      <h2 style="margin:0">选择检查项目</h2>
+      <button class="btn ghost" data-go="settings" style="flex:none;min-height:52px">设置</button>
+    </div>
+    <div class="cards">
+      <button class="big-card" data-start="distance">
+        <div class="ico">🖥️</div>
+        <div class="t">远距离视力</div>
+        <div class="s">2 米距离 · 需要一位助手帮忙操作</div>
+        <div class="meta">约 5 分钟 · 先测右眼再测左眼</div>
+      </button>
+      <button class="big-card" data-start="near">
+        <div class="ico">📖</div>
+        <div class="t">近距离视力</div>
+        <div class="s">40 厘米距离 · 自己一个人就能测</div>
+        <div class="meta">约 4 分钟 · 双眼一起测</div>
+      </button>
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn secondary" data-go="history">查看历史记录</button>
+      <button class="btn ghost" data-go="welcome">返回首页</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 屏幕校准 ==================== -->
+<section class="screen" data-screen="calib">
+  <div class="wrap">
+    <h2>第一步：校准屏幕</h2>
+    <div class="card small">
+      <p>手机、一体机的屏幕大小各不相同，先把「E」画成正确的大小。</p>
+      <p><strong>选一件身边有的标准物品</strong>，放到屏幕上的两条黄色标线之间，拖动黄色方块（或下面的大按钮），让两条标线<strong>正好卡住物品的两端</strong>。</p>
+    </div>
+    <div class="obj-tabs" id="objTabs"></div>
+    <div class="calib-stage" id="calibStage">
+      <div class="calib-bar" id="calibBar"></div>
+      <div class="calib-handle" id="hLeft" style="left:20px"></div>
+      <div class="calib-handle" id="hRight" style="left:280px"></div>
+    </div>
+    <input type="range" id="calibRange" min="80" max="900" step="1" value="300" aria-label="调整标尺长度">
+    <div class="calib-warn" id="calibWarn" hidden></div>
+    <div class="calib-ctrl">
+      <button class="btn secondary" data-calib="-1">− 缩短</button>
+      <div class="calib-num" id="calibReadout">—</div>
+      <button class="btn secondary" data-calib="1">加长 +</button>
+    </div>
+    <div class="row">
+      <button class="btn" data-action="calib-done">卡好了，完成校准</button>
+    </div>
+    <details class="card small">
+      <summary style="font-weight:700;cursor:pointer">没有合适的物品？用屏幕对角线估算（一体机）</summary>
+      <p class="muted">输入屏幕对角线英寸数，系统按屏幕分辨率估算。精度不如实物校准。</p>
+      <div class="row" style="align-items:center">
+        <input id="diagInput" inputmode="decimal" placeholder="例如 21.5"
+               style="flex:1;min-height:64px;font-size:1.1em;padding:0 14px;border-radius:16px;border:2px solid var(--line);background:#fff">
+        <button class="btn secondary" data-action="calib-diag" style="flex:none">按对角线计算</button>
+      </div>
+    </details>
+    <div class="row" style="margin-top:auto">
+      <button class="btn ghost" data-go="home">稍后再说</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 测试说明 ==================== -->
+<section class="screen" data-screen="setup">
+  <div class="wrap">
+    <h2 id="setupTitle">准备开始</h2>
+    <div class="card" id="setupBody"></div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn big" data-action="setup-start">开始测试</button>
+      <button class="btn ghost" data-go="home">返回</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 测试 ==================== -->
+<section class="screen" data-screen="test">
+  <div id="hud">
+    <div id="hudLeft"><strong>—</strong></div>
+    <div class="row" style="align-items:center;gap:10px">
+      <span id="hudRight"></span>
+      <button id="btnPause">暂停</button>
+    </div>
+  </div>
+  <div id="stage"></div>
+  <div id="answerbar" hidden>
+    <button data-ans="up" aria-label="向上">↑</button>
+    <button data-ans="right" aria-label="向右">→</button>
+    <button data-ans="down" aria-label="向下">↓</button>
+    <button data-ans="left" aria-label="向左">←</button>
+  </div>
+  <div id="overlay" hidden></div>
+</section>
+
+<!-- ==================== 结果 ==================== -->
+<section class="screen" data-screen="result">
+  <div class="wrap">
+    <h2 id="resultTitle">测试结果</h2>
+    <div class="res-grid" id="resultGrid"></div>
+    <div class="advice" id="resultAdvice"></div>
+    <div class="disclaimer">
+      本结果为<strong>初步筛查</strong>，不等于医学诊断。视力受光线、距离、疲劳、眼镜等因素影响。
+      如果结果异常，或平时就有看不清、视物变形、眼前黑影等情况，请尽快到<strong>医院眼科</strong>检查。
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn secondary" data-action="result-again">再测一次</button>
+      <button class="btn ghost" data-go="home">回到首页</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 设置 ==================== -->
+<section class="screen" data-screen="settings">
+  <div class="wrap">
+    <div class="row" style="align-items:center;justify-content:space-between">
+      <h2 style="margin:0">设置</h2>
+      <button class="btn ghost" data-go="home" style="flex:none">完成</button>
+    </div>
+    <div class="card">
+      <div class="set-row">
+        <div><div style="font-weight:700">语音提示</div><div class="muted small">用语音念出每一步的操作</div></div>
+        <button class="switch" id="swVoice" role="switch" aria-checked="true"></button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">按键音</div><div class="muted small">每次作答给一个轻提示音</div></div>
+        <button class="switch" id="swBeep" role="switch" aria-checked="true"></button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">近距离测试距离</div><div class="muted small">默认 40 厘米（标准）</div></div>
+        <div class="seg" id="segNearDist">
+          <button data-near="33">33 cm</button>
+          <button data-near="40">40 cm</button>
+          <button data-near="45">45 cm</button>
+        </div>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">本机可测范围</div><div class="muted small" id="capInfo">—</div></div>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">屏幕校准</div><div class="muted small" id="calibInfo">未校准</div></div>
+        <button class="btn secondary" data-go="calib" style="flex:none;min-height:52px">重新校准</button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">全屏显示</div><div class="muted small">一体机建议全屏，避免误触</div></div>
+        <button class="btn secondary" data-action="fullscreen" style="flex:none;min-height:52px">切换</button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">清除历史记录</div><div class="muted small">本机保存的所有测试结果</div></div>
+        <button class="btn danger" data-action="clear-history" style="flex:none;min-height:52px">清除</button>
+      </div>
+    </div>
+    <div class="disclaimer">
+      视力筛查程序 v0.1 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
+      本程序不联网、不上传任何数据，结果只存在本机。
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn ghost" data-go="home">返回</button>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 历史 ==================== -->
+<section class="screen" data-screen="history">
+  <div class="wrap">
+    <h2>历史记录</h2>
+    <div class="card" id="historyList"></div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn ghost" data-go="home">返回</button>
+    </div>
+  </div>
+</section>
+
+<script>
+'use strict';
+/* =====================================================================
+   1. 基础常量
+   ===================================================================== */
+// logMAR 档位（WHOeyes 同款：1.0 → 0.0，每档 0.1）
+const LEVELS  = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0];
+// 对应小数视力
+const DECIMAL = ['0.10','0.125','0.16','0.20','0.25','0.32','0.40','0.50','0.63','0.80','1.00'];
+// 对应 Snellen 6/x
+const SNELLEN = ['6/60','6/48','6/38','6/30','6/24','6/19','6/15','6/12','6/9.5','6/7.5','6/6'];
+// 测试距离（米）
+const TEST_DIST = { distance: 2.0, near: 0.40 };
+// 每组 5 个视标，答对 4 个算通过（WHOeyes 规则）
+const PER_LEVEL = 5, PASS_NEED = 4;
+// 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
+const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
+const DIRS = ['up','right','down','left'];
+const DIR_ROT = { right:0, down:90, left:180, up:270 };
+
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+// 调试参数：?debug=1 &sim=0.3 &mmpp=0.19
+const QS = new URLSearchParams(location.search);
+const DEBUG = QS.has('debug');
+const SIM = QS.has('sim') ? parseFloat(QS.get('sim')) : null;
+const SIM_DELAY = QS.has('simdelay') ? parseFloat(QS.get('simdelay')) : 100;
+
+/* =====================================================================
+   2. 存储
+   ===================================================================== */
+const store = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+  del(k){ try { localStorage.removeItem(k); } catch(e){} },
+};
+
+const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2 };
+let settings = Object.assign({}, DEFAULT_SETTINGS, store.get('vs.settings', {}));
+
+// 校准值：每 1 个 CSS 像素对应多少毫米
+let calib = store.get('vs.calib', null);   // { mmPerCssPx, method, at }
+if (QS.has('mmpp')) { calib = { mmPerCssPx: parseFloat(QS.get('mmpp')), method: 'query', at: Date.now() }; }
+
+function devPerMm(){
+  const dpr = window.devicePixelRatio || 1;
+  if (!calib || !(calib.mmPerCssPx > 0)) return null;
+  return dpr / calib.mmPerCssPx;          // 每个物理毫米对应多少设备像素
+}
+
+/* =====================================================================
+   3. 语音 / 提示音
+   ===================================================================== */
+let audioCtx = null;
+function beep(freq = 880, dur = 0.06, gain = 0.05){
+  if (!settings.beep) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0005, audioCtx.currentTime + dur);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + dur);
+  } catch(e){}
+}
+function speak(text){
+  if (!settings.voice || !text) return;
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; u.rate = 0.95; u.pitch = 1;
+    const vs = window.speechSynthesis.getVoices() || [];
+    const zh = vs.find(v => /zh|Chinese/i.test(v.lang));
+    if (zh) u.voice = zh;
+    window.speechSynthesis.speak(u);
+  } catch(e){}
+}
+if ('speechSynthesis' in window) {
+  // 部分浏览器需要预热一下 voice 列表
+  window.speechSynthesis.getVoices();
+}
+
+/* =====================================================================
+   4. 屏幕路由
+   ===================================================================== */
+const TITLES = { welcome:'视力筛查', home:'视力筛查', calib:'屏幕校准', setup:'准备开始',
+                 test:'正在测试', result:'测试结果', settings:'设置', history:'历史记录' };
+function showScreen(name){
+  $$('.screen').forEach(s => s.classList.toggle('active', s.dataset.screen === name));
+  document.title = TITLES[name] || '视力筛查';
+  window.scrollTo(0, 0);
+}
+
+/* =====================================================================
+   5. 校准：用真实标准物品量屏幕（身份证 / 硬币 / A4 / A5 / A6）
+   思路：物品真实长度已知 → 把屏幕上的标尺调到和它一样长
+        → 每个 CSS 像素对应多少毫米就定下来了
+   ===================================================================== */
+const CALIB_OBJECTS = [
+  { id:'card_s', label:'身份证 / 银行卡 短边', mm:54.0, note:'54.0 mm · 手机推荐' },
+  { id:'card_l', label:'身份证 / 银行卡 长边', mm:85.6, note:'85.6 mm · 平板/一体机' },
+  { id:'coin',   label:'1 元硬币',             mm:25.0, note:'直径 25 mm · 小屏幕' },
+  { id:'a6s',    label:'A6 纸短边',            mm:105,  note:'10.5 cm' },
+  { id:'a5s',    label:'A5 纸短边',            mm:148,  note:'14.8 cm' },
+  { id:'a4s',    label:'A4 纸短边',            mm:210,  note:'21.0 cm · 一体机推荐' },
+  { id:'a4l',    label:'A4 纸长边',            mm:297,  note:'29.7 cm · 大屏一体机' },
+];
+let calibObj = store.get('vs.calibObj', 'card_s');
+let calibLenPx = 300;
+let calibDragging = false;
+
+function objOf(id){ return CALIB_OBJECTS.find(o => o.id === id) || CALIB_OBJECTS[0]; }
+function calibObjMm(){ return objOf(calibObj).mm; }
+function calibStageEl(){ return $('#calibStage'); }
+function calibMaxLen(){
+  const st = calibStageEl();
+  return Math.max(140, (st ? st.clientWidth : 320) - 36);
+}
+/* 用屏幕对角线估算 mm/CSSpx（兜底方案） */
+function estimateMmPerCss(diagIn){
+  const w = window.screen.width, h = window.screen.height;
+  const diagCss = Math.hypot(w, h) || 1;
+  return (diagIn * 25.4) / diagCss;
+}
+
+function renderObjTabs(){
+  const box = $('#objTabs');
+  if (!box) return;
+  box.innerHTML = CALIB_OBJECTS.map(o =>
+    `<button class="obj-tab" data-obj="${o.id}" aria-pressed="${o.id === calibObj}">
+       <strong>${o.label}</strong><span>${o.note}</span></button>`).join('');
+}
+
+function paintCalib(){
+  const st = calibStageEl(), bar = $('#calibBar');
+  if (!st || !bar) return;
+  const maxLen = calibMaxLen();
+  calibLenPx = clamp(calibLenPx, 80, maxLen);
+  const w = st.clientWidth;
+  const left = (w - calibLenPx) / 2;
+  bar.style.left = left + 'px';
+  bar.style.width = calibLenPx + 'px';
+  $('#hLeft').style.left  = (left - 20) + 'px';
+  $('#hRight').style.left = (left + calibLenPx - 20) + 'px';
+
+  const range = $('#calibRange');
+  if (range) { range.max = String(Math.round(maxLen)); range.value = String(Math.round(calibLenPx)); }
+
+  const mmPerCssPx = calibObjMm() / calibLenPx;
+  const dpr = window.devicePixelRatio || 1;
+  const ppi = Math.round(25.4 / mmPerCssPx * dpr);
+  const readout = $('#calibReadout');
+  if (readout) readout.innerHTML = `${ppi}<span class="small"> PPI</span>`;
+
+  const warn = $('#calibWarn');
+  if (warn) {
+    if (calibLenPx >= maxLen - 2) {
+      warn.hidden = false;
+      warn.textContent = '标尺已经到屏幕边缘了。如果物品仍然比标尺长，说明它比屏幕还宽——请换一件更短的物品（纸的短边、硬币、或身份证）。';
+    } else {
+      warn.hidden = true;
+    }
+  }
+}
+
+function openCalib(){
+  calibObj = store.get('vs.calibObj', calibObj || 'card_s');
+  renderObjTabs();
+  if (calib) calibLenPx = calibObjMm() / calib.mmPerCssPx;
+  else       calibLenPx = calibObjMm() / estimateMmPerCss(6.1);
+  showScreen('calib');
+  requestAnimationFrame(paintCalib);
+}
+
+function finishCalib(){
+  const mmPerCssPx = calibObjMm() / calibLenPx;
+  calib = { mmPerCssPx, method: 'object', object: calibObj, at: Date.now() };
+  store.set('vs.calib', calib);
+  store.set('vs.calibObj', calibObj);
+  beep(660, .08);
+  speak('校准完成');
+  if (pendingStart) { showScreen('setup'); renderSetup(pendingStart); }
+  else showScreen('home');
+}
+
+/* =====================================================================
+   6. 视标几何：把 logMAR 换算成物理毫米，再吸附到整数设备像素
+   ===================================================================== */
+// 视标高度（毫米）：E 的高度在 logMAR 0 时为 5 弧分
+function optotypeHeightMm(logMAR, distM){
+  const marArcmin = Math.pow(10, logMAR);      // 最小分辨角
+  const heightArcmin = 5 * marArcmin;          // 视标高 = 5 × MAR
+  const rad = heightArcmin * Math.PI / (180 * 60);
+  return Math.tan(rad) * distM * 1000;
+}
+
+/* =====================================================================
+   7. 测试会话状态
+   ===================================================================== */
+let session = null;
+let pendingStart = null;
+
+function eyesFor(type){
+  return type === 'distance'
+    ? [{ key:'right', label:'右眼', cover:'请遮住左眼' },
+       { key:'left',  label:'左眼', cover:'请遮住右眼' }]
+    : [{ key:'both',  label:'双眼', cover:'保持两眼睁开' }];
+}
+
+// 计算本机屏幕能可靠显示到哪一档（笔画至少 1 个设备像素，且误差 ≤10%）
+function maxRenderableIndex(distM){
+  const dpm = devPerMm();
+  if (!dpm) return LEVELS.length - 1;
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    const dev = optotypeHeightMm(LEVELS[i], distM) * dpm;
+    const k = Math.round(dev / 5);
+    if (k >= 1 && Math.abs(5 * k - dev) / dev <= 0.10) return i;
+  }
+  return 0;
+}
+
+function updateHud(){
+  if (!session) return;
+  const eye = session.eyes[session.eyeIdx];
+  const parts = [];
+  parts.push(`<strong>${eye.label}</strong> · ${eye.cover}`);
+  $('#hudLeft').innerHTML = parts.join('');
+  let right = `第 ${session.group || 1} 组`;
+  if (DEBUG && session.lastRender) {
+    right += ` · 视标 ${session.lastRender.size.toFixed(1)}px`;
+  }
+  $('#hudRight').textContent = right;
+}
+
+/* 画一个视标 */
+function drawOptotype(dir, levelIndex){
+  const stage = $('#stage');
+  const w = stage.clientWidth, h = stage.clientHeight;
+  const logMAR = LEVELS[levelIndex];
+  const sizeMm = optotypeHeightMm(logMAR, session.distM);
+  const dpm = devPerMm() || 4;
+  const dpr = window.devicePixelRatio || 1;
+
+  const devRaw = sizeMm * dpm;
+  const k = Math.max(1, Math.round(devRaw / 5));     // 笔画 = k 个设备像素
+  let size = (5 * k) / dpr;                          // CSS px
+  let stroke = size / 5;
+  let gap = size / 2;                                // 拥挤框与视标的间距
+
+  // 屏幕放不下时：先压拥挤框，再等比缩视标
+  const avail = Math.min(w, h) * 0.94;
+  let total = size + 2 * gap + 2 * stroke;
+  if (total > avail) {
+    gap = Math.max(0, (avail - size - 2 * stroke) / 2);
+    total = size + 2 * gap + 2 * stroke;
+    if (total > avail && size > 0) {
+      const s = avail / total;
+      size *= s; stroke *= s; gap *= s;
+    }
+  }
+
+  const rot = DIR_ROT[dir];
+  stage.innerHTML =
+    `<div class="crowd" style="border-width:${stroke}px;padding:${gap}px">` +
+      `<svg width="${size}" height="${size}" viewBox="0 0 5 5" style="transform:rotate(${rot}deg)">` +
+        `<path d="${E_PATH}" fill="#000"/></svg></div>`;
+
+  session.lastRender = { size, stroke, gap, devRaw, k, logMAR };
+  updateHud();
+}
+
+/* =====================================================================
+   8. 作答输入
+   ===================================================================== */
+let swipeStart = null;
+function answer(dir){
+  if (!session || !session.resolve || session.paused) return;
+  const resolve = session.resolve;
+  session.resolve = null;
+  resolve(dir);
+}
+function waitAnswer(){
+  return new Promise(res => { session.resolve = res; });
+}
+function simulateAnswer(correct, logMAR){
+  // 心理测量曲线：4 选 1 猜测基线 25%，正好在阈值处约 62%
+  // logMAR 比真值大（视标更大）→ 答对率高
+  const p = 0.25 + 0.75 / (1 + Math.exp(-(logMAR - SIM) / 0.08));
+  if (Math.random() < p) return correct;
+  return pick(DIRS.filter(d => d !== correct));
+}
+async function getAnswer(correct, logMAR){
+  if (SIM != null) { await sleep(SIM_DELAY); return simulateAnswer(correct, logMAR); }
+  return waitAnswer();
+}
+
+/* =====================================================================
+   9. 测试引擎
+   ===================================================================== */
+let lastDir = null;
+function pickDir(){
+  let d = pick(DIRS);
+  if (d === lastDir) d = pick(DIRS.filter(x => x !== lastDir));
+  lastDir = d;
+  return d;
+}
+
+async function runLevel(level){
+  let correct = 0, shown = 0;
+  while (true) {
+    const dir = pickDir();
+    drawOptotype(dir, level);
+    const ans = await getAnswer(dir, LEVELS[level]);
+    if (!session || session.aborted) return { pass:false, aborted:true };
+    shown++;
+    if (ans === dir) correct++;
+    session.trials++;
+    if (settings.beep) beep(ans === dir ? 880 : 440, .05, .04);
+
+    if (correct >= PASS_NEED) return { pass:true };
+    if (shown - correct >= PER_LEVEL - PASS_NEED + 1) return { pass:false };  // 已不可能达标
+    if (shown >= PER_LEVEL) return { pass:false };
+  }
+}
+
+/* WHOeyes 同款阶梯：
+   通过 → 前进 2 档（0.2 logMAR）
+   首次失败 F → 回到 F-1 复测
+     通过 → 结果 F-1
+     失败 → 结果 F-2（最后一次通过的档位）
+   连最大视标都失败 → 记为「< 0.1」
+   受本机屏幕分辨率限制时，封顶到 maxRenderableIndex */
+async function runEye(){
+  const cap = session.cap;
+  let level = 0, firstFail = -1, group = 0;
+
+  while (true) {
+    group++;
+    session.group = group;
+    updateHud();
+
+    const r = await runLevel(level);
+    if (!session || session.aborted) return null;
+
+    if (r.pass) {
+      if (firstFail >= 0) return { index:level, capped:false };
+      if (level >= cap)   return { index:level, capped:true };
+      const next = Math.min(level + 2, cap);
+      if (next === level) return { index:level, capped:false };
+      level = next;
+    } else {
+      if (level === 0) return { worse:true, index:0 };
+      if (firstFail < 0) { firstFail = level; level = level - 1; }
+      else return { index:firstFail - 2, capped:false };
+    }
+  }
+}
+
+function finishEyeResult(r){
+  if (!r) return null;
+  if (r.worse) return { worse:true, index:0, logMAR:1.0, atCap:false };
+  return {
+    worse:false, index:r.index, logMAR:LEVELS[r.index],
+    decimal:DECIMAL[r.index], snellen:SNELLEN[r.index], atCap:!!r.capped,
+  };
+}
+
+/* =====================================================================
+   10. 覆盖层（倒数 / 换眼 / 暂停）
+   ===================================================================== */
+function overlay(html){
+  const o = $('#overlay');
+  o.innerHTML = html;
+  o.hidden = false;
+  return o;
+}
+function hideOverlay(){
+  const o = $('#overlay');
+  o.hidden = true; o.innerHTML = '';
+}
+function countdown(title, sub, seconds = 3){
+  return new Promise(resolve => {
+    overlay(`<div class="ov-card">
+        <div class="ov-num" id="ovNum">${seconds}</div>
+        <div class="ov-title">${title}</div>
+        <div class="ov-sub">${sub || ''}</div>
+      </div>`);
+    let n = seconds;
+    const step = () => {
+      const el = $('#ovNum');
+      if (el) el.textContent = n > 0 ? n : '开始';
+      if (n <= 0) { setTimeout(() => { hideOverlay(); resolve(); }, 420); return; }
+      n--;
+      setTimeout(step, 900);
+    };
+    step();
+  });
+}
+function intermission(eye, res){
+  return new Promise(resolve => {
+    speak(`${eye.label}测完了`);
+    overlay(`<div class="ov-card">
+        <div class="ov-title">${eye.label} 测完了</div>
+        <div class="ov-sub">${describeResult(res)}</div>
+        <div class="ov-num" style="font-size:clamp(40px,6vw,64px)">😊</div>
+        <button class="btn big" id="ovNext" style="min-width:min(420px,80vw)">换另一只眼</button>
+      </div>`);
+    $('#ovNext').onclick = () => { hideOverlay(); beep(660, .08); resolve(); };
+  });
+}
+function describeResult(r){
+  if (!r) return '—';
+  if (r.worse) return '看不见最大的 E（低于 0.1）';
+  return `小数视力 ${r.decimal} · logMAR ${r.logMAR.toFixed(1)}` + (r.atCap ? '（已到本机上限）' : '');
+}
+
+/* =====================================================================
+   11. 开始 / 结束会话
+   ===================================================================== */
+function renderSetup(type){
+  const isFar = type === 'distance';
+  const distM = isFar ? (settings.distanceM || 2) : settings.nearDistance / 100;
+  const cap = maxRenderableIndex(distM);
+  const capWarn = LEVELS[cap] > 0.3
+    ? `<p class="calib-warn">提示：这块屏幕的分辨率有限，在 ${isFar ? distM + ' 米' : settings.nearDistance + ' 厘米'} 处最高只能测到小数视力 <strong>${DECIMAL[cap]}</strong>。更好的视力会被记为「已达本机上限」。</p>`
+    : '';
+  $('#setupTitle').textContent = isFar
+    ? `远距离视力测试（${settings.distanceM || 2} 米）`
+    : `近距离视力测试（${settings.nearDistance} 厘米）`;
+  $('#setupBody').innerHTML = isFar ? `
+    <h3>需要两个人</h3>
+    <ul>
+      <li>你坐在离屏幕 <strong>${settings.distanceM || 2} 米</strong> 的地方，正对屏幕、眼睛和屏幕差不多高</li>
+      <li>请一位家人或医护人员<strong>拿着设备</strong>，站在你旁边</li>
+      <li>把屏幕<strong>亮度调到最大</strong>；平时戴眼镜就<strong>戴着测</strong></li>
+      <li>先<strong>遮住左眼</strong>测右眼，做完再遮右眼测左眼</li>
+      <li>你看清 E 的开口方向后<strong>用手指一下</strong>，助手按方向<strong>滑动屏幕</strong>或点下面四个方向键</li>
+      <li>看不清就<strong>猜一个</strong>，不要眯眼</li>
+    </ul>
+    <h3>测试距离</h3>
+    <div class="seg" id="segDist">
+      <button data-dist="2"   aria-pressed="${(settings.distanceM || 2) === 2}">2 米（标准）</button>
+      <button data-dist="1.5" aria-pressed="${(settings.distanceM || 2) === 1.5}">1.5 米</button>
+      <button data-dist="1"   aria-pressed="${(settings.distanceM || 2) === 1}">1 米</button>
+    </div>
+    <p class="muted small" id="distTip">${distTip(settings.distanceM || 2)}</p>
+    ${capWarn}
+    <p class="muted small">助手请不要看屏幕上的 E，避免影响结果。</p>
+  ` : `
+    <h3>一个人就能做</h3>
+    <ul>
+      <li>坐在舒服的位置，屏幕离眼睛 <strong>${settings.nearDistance} 厘米</strong>（大约一臂再加一点）</li>
+      <li>把屏幕<strong>亮度调到最大</strong>；平时戴眼镜、老花镜就<strong>戴着测</strong></li>
+      <li><strong>两只眼睛都睁开</strong>，不要遮</li>
+      <li>看清 E 的开口方向后，<strong>向那个方向滑动屏幕</strong>，或点下面四个方向键</li>
+      <li>看不清就<strong>猜一个</strong>，不要眯眼</li>
+    </ul>
+    <p class="muted small">测的过程中尽量保持头不动、距离不变。</p>
+    ${capWarn}
+  `;
+}
+
+/* 不同距离的取舍说明（依据：视角 = 视标高度 / 距离，线性成立；
+   但要考虑老年人调节力与屏幕分辨率下限） */
+function distTip(m){
+  if (m === 2) return '2 米是国际通用的标准距离，老年人不需要动用调节力，结果最可靠。推荐用卷尺或在地上贴一条 2 米标记。';
+  if (m === 1.5) return '1.5 米在空间紧张时可用，视标会按比例缩小。注意：此时眼睛需要约 0.67 D 的调节，部分老年人可能略微低估视力。';
+  return '1 米最容易量（约成人一臂半），但调节需求约 1 D，老年人可能明显低估视力，只建议空间实在不够时用。';
+}
+
+function beginFlow(type){
+  pendingStart = type;
+  if (!calib && !SIM) { openCalib(); return; }
+  showScreen('setup');
+  renderSetup(type);
+}
+
+async function startSession(){
+  const type = pendingStart || 'near';
+  const distM = type === 'distance' ? (settings.distanceM || 2) : settings.nearDistance / 100;
+  session = {
+    type, distM,
+    eyes: eyesFor(type),
+    eyeIdx: 0,
+    results: {},
+    trials: 0,
+    group: 1,
+    aborted: false,
+    cap: maxRenderableIndex(distM),
+  };
+  showScreen('test');
+  $('#answerbar').hidden = false;
+  await requestWakeLock();
+
+  for (let i = 0; i < session.eyes.length; i++) {
+    session.eyeIdx = i;
+    const eye = session.eyes[i];
+    updateHud();
+    await countdown(eye.label + ' 测试', eye.cover + '，看清 E 的开口方向');
+    speak(`${eye.label}，${eye.cover}。看清 E 的开口方向，看不清就猜一个。`);
+
+    const raw = await runEye();
+    if (!session || session.aborted) return;
+
+    session.results[eye.key] = finishEyeResult(raw);
+    if (i < session.eyes.length - 1) await intermission(eye, session.results[eye.key]);
+  }
+  finishSession();
+}
+
+function finishSession(){
+  $('#answerbar').hidden = true;
+  hideOverlay();
+  releaseWakeLock();
+  const type = session.type;
+  const results = session.results;
+
+  // 存历史
+  const hist = store.get('vs.history', []);
+  hist.unshift({
+    ts: Date.now(), type,
+    results: Object.fromEntries(Object.entries(results).map(([k, v]) => [k, {
+      logMAR: v.logMAR, decimal: v.decimal, worse: v.worse, atCap: v.atCap,
+    }])),
+    trials: session.trials,
+  });
+  store.set('vs.history', hist.slice(0, 60));
+
+  renderResult(type, results);
+  showScreen('result');
+  speak('测试完成。' + (adviceFor(type, results).speech || ''));
+}
+
+/* =====================================================================
+   12. 结果
+   ===================================================================== */
+function tierOf(logMAR, worse){
+  if (worse) return 'refer';
+  if (logMAR <= 0.2) return 'good';
+  if (logMAR <= 0.4) return 'watch';
+  return 'refer';
+}
+function tierLabel(tier){
+  return tier === 'good' ? '正常范围' : tier === 'watch' ? '略低于正常' : '明显下降';
+}
+function adviceFor(type, results){
+  const vals = Object.values(results);
+  const anyWorse = vals.some(v => v.worse);
+  const worst = vals.reduce((m, v) => Math.max(m, v.worse ? 1.1 : v.logMAR), -1);
+  const tier = anyWorse ? 'refer' : (worst <= 0.2 ? 'good' : worst <= 0.4 ? 'watch' : 'refer');
+  const isNear = type === 'near';
+
+  if (tier === 'good') {
+    return { tier, title:'视力看起来不错', speech:'视力看起来不错，继续保持定期检查。',
+      body:`测得的最好结果是小数视力 ${bestText(vals)}（logMAR ${bestLog(vals).toFixed(1)}），在正常范围内。` +
+           `即使看得清，也建议每 1–2 年到眼科检查一次，很多眼病早期没有感觉。` };
+  }
+  if (tier === 'watch') {
+    return { tier, title:'比正常稍差一点，建议近期检查', speech:'比正常稍差，建议近期到眼科检查。',
+      body: (isNear
+        ? `近距离视力偏低（小数视力 ${bestText(vals)}）。老年人最常见的原因是<strong>老花眼</strong>，配上合适的老花镜通常就能改善。`
+        : `远距离视力偏低（小数视力 ${bestText(vals)}）。可能是近视/远视没矫正、白内障、眼底问题等。`) +
+        `建议 1–2 周内到<strong>医院眼科或正规眼镜店</strong>验光检查；如果正在戴眼镜，请戴着再测一次确认。` };
+  }
+  return { tier, title:'视力明显下降，请尽快就医', speech:'视力明显下降，请尽快到眼科检查。',
+    body: (anyWorse
+      ? '有眼睛<strong>看不清屏幕上最大的 E</strong>（低于 0.1），这属于明显下降。'
+      : `测得的视力为小数视力 ${bestText(vals)}，低于一般水平。`) +
+      `请尽快到<strong>医院眼科</strong>做详细检查。视力突然下降、看东西变形、眼前有黑影飘动，更要马上就诊。` };
+}
+function bestLog(vals){ return Math.min(...vals.map(v => v.worse ? 1.0 : v.logMAR)); }
+function bestText(vals){
+  const v = vals.filter(x => !x.worse).sort((a,b) => a.logMAR - b.logMAR)[0];
+  return v ? v.decimal : '<0.1';
+}
+
+function renderResult(type, results){
+  $('#resultTitle').textContent = type === 'distance' ? '远距离视力结果' : '近距离视力结果';
+  const eyes = eyesFor(type);
+  $('#resultGrid').innerHTML = eyes.map(e => {
+    const r = results[e.key];
+    if (!r) return '';
+    const tier = tierOf(r.logMAR, r.worse);
+    const big = r.worse ? '<0.1' : r.decimal;
+    const sub = r.worse ? 'logMAR ≥ 1.0 · 低于 6/60'
+              : `logMAR ${r.logMAR.toFixed(1)} · ${r.snellen}`
+                + (r.atCap ? ' · 已达本机上限' : '');
+    return `<div class="res-card">
+      <div class="res-eye">${e.label}</div>
+      <div class="res-big">${big}</div>
+      <div class="res-sub">小数视力 · ${sub}</div>
+      <div class="pill ${tier}">${tierLabel(tier)}</div>
+    </div>`;
+  }).join('');
+
+  const adv = adviceFor(type, results);
+  const box = $('#resultAdvice');
+  box.className = 'advice ' + adv.tier;
+  box.innerHTML = `<h3 style="margin-top:0">${adv.title}</h3><div>${adv.body}</div>`;
+}
+
+/* =====================================================================
+   13. 设置 / 历史
+   ===================================================================== */
+function renderSettings(){
+  $('#swVoice').setAttribute('aria-checked', String(!!settings.voice));
+  $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
+  $$('#segNearDist button').forEach(b => {
+    b.setAttribute('aria-pressed', String(Number(b.dataset.near) === settings.nearDistance));
+  });
+  const info = $('#calibInfo');
+  if (calib && calib.mmPerCssPx > 0) {
+    const dpr = window.devicePixelRatio || 1;
+    const ppi = Math.round(25.4 / calib.mmPerCssPx * dpr);
+    info.textContent = `已校准 ≈ ${ppi} PPI（${calib.mmPerCssPx.toFixed(3)} mm/px）`;
+  } else {
+    info.textContent = '未校准 —— 会影响视标大小，建议先校准';
+  }
+  const capEl = $('#capInfo');
+  if (capEl) {
+    const far = maxRenderableIndex(settings.distanceM || 2);
+    const near = maxRenderableIndex(settings.nearDistance / 100);
+    capEl.textContent = `远距最高 ${DECIMAL[far]}（logMAR ${LEVELS[far].toFixed(1)}）· 近距最高 ${DECIMAL[near]}（logMAR ${LEVELS[near].toFixed(1)}）`;
+  }
+}
+function renderHistory(){
+  const list = store.get('vs.history', []);
+  const box = $('#historyList');
+  if (!list.length) { box.innerHTML = '<p class="muted">还没有记录。</p>'; return; }
+  box.innerHTML = list.map(item => {
+    const d = new Date(item.ts);
+    const when = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const label = item.type === 'distance' ? '远距' : '近距';
+    const nums = Object.entries(item.results).map(([k, v]) => {
+      const nm = k === 'right' ? '右' : k === 'left' ? '左' : '双';
+      return `${nm} ${v.worse ? '<0.1' : v.decimal}`;
+    }).join(' / ');
+    return `<div class="hist-item"><div><strong>${label}</strong> ${nums}</div><div class="muted">${when}</div></div>`;
+  }).join('');
+}
+
+/* =====================================================================
+   14. 唤醒锁 / 全屏
+   ===================================================================== */
+let wakeLock = null;
+async function requestWakeLock(){
+  try {
+    if ('wakeLock' in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch(e){}
+}
+function releaseWakeLock(){
+  try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch(e){}
+}
+let fsActive = false;
+function toggleFullscreen(){
+  const el = document.documentElement;
+  if (!document.fullscreenElement) {
+    (el.requestFullscreen ? el.requestFullscreen() : Promise.reject()).catch?.(()=>{});
+    fsActive = true;
+  } else {
+    document.exitFullscreen?.();
+    fsActive = false;
+  }
+}
+
+/* =====================================================================
+   15. 事件绑定
+   ===================================================================== */
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-go],[data-action],[data-start],[data-calib],[data-ans],[data-near],[data-obj],[data-dist]');
+  if (!t) return;
+
+  /* ---- 导航 ---- */
+  if (t.dataset.go) {
+    const go = t.dataset.go;
+    if (go === 'home') { pendingStart = null; }
+    if (go === 'calib') { openCalib(); return; }
+    if (go === 'settings') { renderSettings(); }
+    if (go === 'history') { renderHistory(); }
+    if (go === 'home') { showScreen('home'); return; }
+    showScreen(go);
+    return;
+  }
+
+  /* ---- 动作 ---- */
+  if (t.dataset.action) {
+    switch (t.dataset.action) {
+      case 'welcome-start':
+        if (!calib && !SIM) { openCalib(); } else { showScreen('home'); }
+        break;
+      case 'calib-done': finishCalib(); break;
+      case 'calib-diag': {
+        const v = parseFloat($('#diagInput').value);
+        if (!(v > 3 && v < 120)) { alert('请输入 4–120 之间的英寸数'); break; }
+        calibLenPx = calibObjMm() / estimateMmPerCss(v);
+        paintCalib();
+        beep(660, .07);
+        break;
+      }
+      case 'setup-start': startSession(); break;
+      case 'result-again': beginFlow(session ? session.type : 'near'); break;
+      case 'fullscreen': toggleFullscreen(); break;
+      case 'clear-history':
+        if (confirm('确定要清除全部历史记录吗？')) { store.set('vs.history', []); renderHistory(); }
+        break;
+    }
+    return;
+  }
+
+  /* ---- 选择测试项目 ---- */
+  if (t.dataset.start) { beginFlow(t.dataset.start); return; }
+
+  /* ---- 校准：选择标准物品 ---- */
+  if (t.dataset.obj) {
+    calibObj = t.dataset.obj;
+    renderObjTabs();
+    const base = calib ? calib.mmPerCssPx : estimateMmPerCss(6.1);
+    calibLenPx = clamp(calibObjMm() / base, 80, calibMaxLen());
+    paintCalib();
+    beep(660, .05);
+    return;
+  }
+
+  /* ---- 测试距离（仅远距） ---- */
+  if (t.dataset.dist) {
+    settings.distanceM = Number(t.dataset.dist);
+    store.set('vs.settings', settings);
+    renderSetup('distance');
+    beep(660, .05);
+    return;
+  }
+
+  /* ---- 校准加减 ---- */
+  if (t.dataset.calib) {
+    const step = Number(t.dataset.calib) > 0 ? 1 : -1;
+    const delta = Math.max(2, Math.round(calibLenPx * 0.012)) * step;
+    calibLenPx = clamp(calibLenPx + delta, 80, calibMaxLen());
+    paintCalib();
+    beep(step > 0 ? 700 : 560, .04);
+    return;
+  }
+
+  /* ---- 作答按钮 ---- */
+  if (t.dataset.ans) { answer(t.dataset.ans); return; }
+});
+
+/* 滑动作答 */
+const stageEl = $('#stage');
+stageEl.addEventListener('pointerdown', (e) => {
+  swipeStart = { x: e.clientX, y: e.clientY };
+});
+stageEl.addEventListener('pointerup', (e) => {
+  if (!swipeStart) return;
+  const dx = e.clientX - swipeStart.x, dy = e.clientY - swipeStart.y;
+  swipeStart = null;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 26) return;
+  answer(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+});
+stageEl.addEventListener('pointercancel', () => { swipeStart = null; });
+
+/* 校准：拖动两端黄色手柄 / 滑条 */
+const calibStageNode = $('#calibStage');
+function calibSetFromX(clientX){
+  const st = calibStageEl();
+  if (!st) return;
+  const r = st.getBoundingClientRect();
+  const center = r.left + r.width / 2;
+  calibLenPx = clamp(Math.abs(clientX - center) * 2, 80, calibMaxLen());
+  paintCalib();
+}
+['#hLeft', '#hRight'].forEach(sel => {
+  const el = $(sel);
+  if (!el) return;
+  el.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    calibDragging = true;
+    el.setPointerCapture?.(e.pointerId);
+  });
+});
+if (calibStageNode) {
+  calibStageNode.addEventListener('pointermove', (e) => {
+    if (calibDragging) calibSetFromX(e.clientX);
+  });
+  calibStageNode.addEventListener('pointerdown', (e) => {
+    if (e.target.classList.contains('calib-handle')) return;
+    calibSetFromX(e.clientX);
+  });
+}
+window.addEventListener('pointerup', () => { calibDragging = false; });
+const calibRangeNode = $('#calibRange');
+if (calibRangeNode) {
+  calibRangeNode.addEventListener('input', (e) => {
+    calibLenPx = Number(e.target.value);
+    paintCalib();
+  });
+}
+
+/* 键盘作答（一体机外接键盘） */
+window.addEventListener('keydown', (e) => {
+  if (!session || $('#overlay').hidden === false) return;
+  const map = { ArrowUp:'up', ArrowRight:'right', ArrowDown:'down', ArrowLeft:'left' };
+  if (map[e.key]) { e.preventDefault(); answer(map[e.key]); }
+});
+
+/* 暂停 */
+$('#btnPause').addEventListener('click', () => {
+  if (!session || session.paused) return;
+  session.paused = true;
+  overlay(`<div class="ov-card">
+      <div class="ov-title">已暂停</div>
+      <div class="ov-sub">休息一下，准备好再继续</div>
+      <div class="row" style="width:min(520px,86vw)">
+        <button class="btn big" id="ovResume">继续</button>
+        <button class="btn secondary" id="ovQuit">结束测试</button>
+      </div>
+    </div>`);
+  $('#ovResume').onclick = () => { session.paused = false; hideOverlay(); };
+  $('#ovQuit').onclick = () => {
+    session.aborted = true;
+    session.paused = false;
+    hideOverlay();
+    $('#answerbar').hidden = true;
+    releaseWakeLock();
+    showScreen('home');
+  };
+});
+
+/* 设置项交互 */
+$('#swVoice').addEventListener('click', () => {
+  settings.voice = !settings.voice;
+  store.set('vs.settings', settings);
+  $('#swVoice').setAttribute('aria-checked', String(settings.voice));
+  if (settings.voice) speak('语音已打开');
+});
+$('#swBeep').addEventListener('click', () => {
+  settings.beep = !settings.beep;
+  store.set('vs.settings', settings);
+  $('#swBeep').setAttribute('aria-checked', String(settings.beep));
+  if (settings.beep) beep(880, .08);
+});
+$('#segNearDist').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-near]');
+  if (!b) return;
+  settings.nearDistance = Number(b.dataset.near);
+  store.set('vs.settings', settings);
+  renderSettings();
+});
+
+/* =====================================================================
+   16. 启动
+   ===================================================================== */
+window.__vsErrors = [];
+window.addEventListener('error', (e) => {
+  window.__vsErrors.push(String(e.message || e));
+  if (DEBUG) console.error('[error]', e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  window.__vsErrors.push('unhandledrejection: ' + String(e.reason));
+});
+
+(function boot(){
+  // 校验校准值是否合理
+  if (calib && !(calib.mmPerCssPx > 0.05 && calib.mmPerCssPx < 5)) calib = null;
+
+  showScreen('welcome');
+  renderSettings();
+
+  if (DEBUG) {
+    window.__vs = {
+      get calib(){ return calib; },
+      get settings(){ return settings; },
+      get session(){ return session; },
+      LEVELS, DECIMAL, SNELLEN,
+      optotypeHeightMm, maxRenderableIndex,
+      go: showScreen, beginFlow,
+    };
+  }
+})();
+</script>
+</body>
+</html>
