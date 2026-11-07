@@ -158,16 +158,20 @@ def test_static_images(engine: PoseEngine) -> None:
         f"arm={result['debug']['arm']}。左右臂对称水平伸展，判定取置信度更高一侧；左右均可接受。",
     )
 
-    # 真人半身图：只要求不崩，报告是否检测到人
-    img = imread(os.path.join(ROOT, "_probe_cam.jpg"))
-    try:
-        result = engine.detect(to_jpeg(img), mirror=True)
-        print(f"  [INFO] _probe_cam.jpg：pose={result['pose']} gesture={result['gesture']} "
-              f"（半身/器材画面，检测不到完整人体属预期）")
-        record("半身图", "_probe_cam.jpg 不崩溃", True,
-               f"pose={result['pose']} gesture={result['gesture']}")
-    except Exception as exc:  # noqa: BLE001
-        record("半身图", "_probe_cam.jpg 不崩溃", False, f"异常 {type(exc).__name__}: {exc}")
+    # 真人半身图：只要求不崩，报告是否检测到人（本地私有测试图可能不存在）
+    cam_path = os.path.join(ROOT, "_probe_cam.jpg")
+    if not os.path.isfile(cam_path):
+        print("  [SKIP] _probe_cam.jpg 不存在（本地私有测试图，未入库）")
+    else:
+        img = imread(cam_path)
+        try:
+            result = engine.detect(to_jpeg(img), mirror=True)
+            print(f"  [INFO] _probe_cam.jpg：pose={result['pose']} gesture={result['gesture']} "
+                  f"（半身/器材画面，检测不到完整人体属预期）")
+            record("半身图", "_probe_cam.jpg 不崩溃", True,
+                   f"pose={result['pose']} gesture={result['gesture']}")
+        except Exception as exc:  # noqa: BLE001
+            record("半身图", "_probe_cam.jpg 不崩溃", False, f"异常 {type(exc).__name__}: {exc}")
 
 
 # --------------------------------------------------------------------------- #
