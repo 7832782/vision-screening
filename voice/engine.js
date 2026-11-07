@@ -35,7 +35,10 @@
       if (onStatus) onStatus('正在加载离线语音运行时…');
       await loadScript('voice/vosk.js');
       if (onStatus) onStatus('正在加载语音模型（约 44 MB，首次较慢）…');
-      model = await window.Vosk.createModel('voice/model.tar.gz');
+      // 必须用绝对 URL：Vosk 的 Blob Worker 里 location 是 blob: 地址，
+      // 相对路径在 GitHub Pages 的子目录部署下会被解析到站点根目录。
+      const modelUrl = new URL('voice/model.tar.gz', window.location.href).href;
+      model = await window.Vosk.createModel(modelUrl);
       modelMs = performance.now() - t0;
       if (onStatus) onStatus(`语音模型就绪（${(modelMs / 1000).toFixed(1)}s）`);
       return model;
