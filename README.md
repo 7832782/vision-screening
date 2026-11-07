@@ -53,7 +53,7 @@ python app.py                             # 或双击 start.bat
 - 本机打开 <http://127.0.0.1:8000/>
 - 同一 Wi-Fi 的手机打开 `http://<电脑 IP>:8000/`（启动时会打印局域网 IP）
 - 手机要开麦克风/摄像头必须是 HTTPS：用 `tools/cloudflared.exe tunnel --url http://127.0.0.1:8000`
-  生成 `https://xxx.trycloudflare.com` 后访问（详见 `docs/Python-AI后端.md`）
+  生成 `https://xxx.trycloudflare.com` 后访问（详见 `docs/Python-AI后端.md`；cloudflared 未入库，首次需按文档下载）
 
 > 部署形态：手机 / Android 一体机只跑浏览器；Python 后端跑在同一 Wi-Fi 下的电脑上。
 > 一体机本身不运行 Python；现场没有电脑时，只能使用浏览器离线语音（手势不可用）。

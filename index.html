@@ -2140,8 +2140,10 @@ async function startSession(){
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
-  if (settings.backendVoice || settings.offlineVoice) startVoiceAnswer();
-  if (settings.gesture) startTestGesture();
+  if (SIM == null) {
+    if (settings.backendVoice || settings.offlineVoice) startVoiceAnswer();
+    if (settings.gesture && BACKEND.poseReady()) startTestGesture();
+  }
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;

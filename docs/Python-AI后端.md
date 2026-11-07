@@ -127,6 +127,10 @@ python app.py
 开发/演示用 Cloudflare 快速隧道（无需账号）：
 
 ```powershell
+# 首次使用先下载 cloudflared（约 55 MB，tools/ 下已被 gitignore）
+curl.exe -L -o tools\cloudflared.exe https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
+
+# 启动隧道
 tools\cloudflared.exe tunnel --url http://127.0.0.1:8000
 ```
 
