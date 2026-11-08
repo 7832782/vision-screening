@@ -191,6 +191,11 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   font-size:1.9em;color:#111;cursor:pointer;line-height:1;
 }
 #answerbar button:active{background:#eceff1}
+.gap-wait{
+  width:100%;height:100%;display:grid;place-items:center;color:var(--muted);
+  font-size:clamp(20px,2.2vw+12px,30px);font-weight:700;letter-spacing:.04em;
+}
+.gap-wait span{opacity:.75}
 
 /* 覆盖层：倒数、换眼、暂停 */
 #overlay{
@@ -257,6 +262,13 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 /* ---------- 历史 ---------- */
 .hist-item{display:flex;justify-content:space-between;gap:12px;padding:14px 4px;border-bottom:1px solid var(--line);font-size:.94em}
 .hist-item:last-child{border-bottom:none}
+.hist-detail{margin-top:8px}
+.hist-detail summary{cursor:pointer;color:var(--accent);font-size:.85em;font-weight:700}
+.hist-table{width:100%;border-collapse:collapse;font-size:.8em;margin-top:8px}
+.hist-table th,.hist-table td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;white-space:nowrap}
+.hist-table th{color:var(--muted);font-weight:700}
+.hist-table tr:last-child td{border-bottom:none}
+.hist-empty{color:var(--muted);font-size:.82em;margin-top:6px}
 
 /* 横向提示条 */
 #toast{
@@ -548,7 +560,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       </div>
     </div>
     <div class="disclaimer">
-      视力筛查程序 v0.8 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
+      视力筛查程序 v0.9 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
       语音/手势仅在你开启时加载本地模型；数据不离开本机。
     </div>
     <div class="row" style="margin-top:auto">
@@ -584,6 +596,8 @@ const SNELLEN = ['6/60','6/48','6/38','6/30','6/24','6/19','6/15','6/12','6/9.5'
 const TEST_DIST = { distance: 2.0, near: 0.40 };
 // 每组 5 个视标，答对 4 个算通过（WHOeyes 规则）
 const PER_LEVEL = 5, PASS_NEED = 4;
+// 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
+const ANSWER_GAP_MS = 1000;
 // 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
 const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
 const DIRS = ['up','right','down','left'];
@@ -745,10 +759,18 @@ function stopVoiceListening() {
 }
 
 function handleTestVoice(r) {
-  if (!session || !session.resolve || session.paused) return;
+  if (!continuousAnswerReady()) return;
   if (!r || !r.dir) { if (r && r.text) toast('没听清：' + r.text); return; }
   if (r.dir === 'unsure') { toast('听到「看不清」，记为猜错'); answer('unsure'); return; }
   if (DIRS.indexOf(r.dir) >= 0) answer(r.dir);
+}
+
+function continuousAnswerReady() {
+  if (!session || !session.resolve || session.paused) return false;
+  const now = performance.now();
+  if (session.continuousLockUntil && now < session.continuousLockUntil) return false;
+  if (session.questionShownAt && now - session.questionShownAt < 250) return false;
+  return true;
 }
 
 async function startVoiceAnswer() {
@@ -789,9 +811,10 @@ async function startGestureTestAnswer() {
   pip.hidden = false;
   try {
     await startGestureSession($('#pipVideo'), $('#pipCanvas'), (dir, conf) => {
-      if (!session || !session.resolve || session.paused) return;
-      if (DIRS.indexOf(dir) < 0) return;
+      if (!continuousAnswerReady()) return false;
+      if (DIRS.indexOf(dir) < 0) return false;
       answer(dir);
+      return true;
     }, (best, ev) => {
       if (DEBUG) window.__gestureTestDebug = { best, ev, at: Date.now() };
       if (best && best.gesture && best.gesture !== 'none' && DIRS.indexOf(best.gesture) >= 0) {
@@ -1068,6 +1091,7 @@ function drawOptotype(dir, levelIndex){
         `<path d="${E_PATH}" fill="#000"/></svg></div>`;
 
   session.lastRender = { size, stroke, gap, devRaw, k, logMAR };
+  session.questionShownAt = performance.now();
   updateHud();
 }
 
@@ -1076,13 +1100,25 @@ function drawOptotype(dir, levelIndex){
    ===================================================================== */
 let swipeStart = null;
 function answer(dir){
-  if (!session || !session.resolve || session.paused) return;
+  if (!session || !session.resolve || session.paused) return false;
+  const now = performance.now();
   const resolve = session.resolve;
   session.resolve = null;
+  session.answerAt = now;
+  // 连续语音/手势的硬缓冲：作答后 1 秒内的新输入不接收
+  session.continuousLockUntil = now + ANSWER_GAP_MS;
+  window.__answerMuteUntil = session.continuousLockUntil;
   resolve(dir);
+  return true;
 }
 function waitAnswer(){
   return new Promise(res => { session.resolve = res; });
+}
+async function answerGap(){
+  const stage = $('#stage');
+  if (stage) stage.innerHTML = '<div class="gap-wait"><span>下一题准备…</span></div>';
+  await sleep(ANSWER_GAP_MS);
+  if (!session || session.aborted) return;
 }
 function simulateAnswer(correct, logMAR){
   // 心理测量曲线：4 选 1 猜测基线 25%，正好在阈值处约 62%
@@ -1117,7 +1153,21 @@ async function runLevel(level){
     shown++;
     if (ans === dir) correct++;
     session.trials++;
+    if (!session.trialsLog) session.trialsLog = [];
+    session.trialsLog.push({
+      eye: session.eyes[session.eyeIdx].label,
+      group: session.group,
+      level: LEVELS[level],
+      dir,
+      ans: ans || 'none',
+      correct: ans === dir,
+      at: Date.now(),
+    });
     if (settings.beep) beep(ans === dir ? 880 : 440, .05, .04);
+    if (session.continuousMode) {
+      await answerGap();
+      if (!session || session.aborted) return { pass:false, aborted:true };
+    }
 
     if (correct >= PASS_NEED) return { pass:true };
     if (shown - correct >= PER_LEVEL - PASS_NEED + 1) return { pass:false };  // 已不可能达标
@@ -1298,6 +1348,8 @@ async function startSession(){
     group: 1,
     aborted: false,
     cap: maxRenderableIndex(distM),
+    continuousMode: SIM == null && !!(settings.voiceAnswer || settings.gestureAnswer),
+    trialsLog: [],
   };
   stopVoiceAnswer();
   stopGestureAnswer();
@@ -1342,6 +1394,7 @@ function finishSession(){
       logMAR: v.logMAR, decimal: v.decimal, worse: v.worse, atCap: v.atCap,
     }])),
     trials: session.trials,
+    log: session.trialsLog || [],
   });
   store.set('vs.history', hist.slice(0, 60));
 
@@ -1479,6 +1532,7 @@ function renderHistory(){
   const list = store.get('vs.history', []);
   const box = $('#historyList');
   if (!list.length) { box.innerHTML = '<p class="muted">还没有记录。</p>'; return; }
+  const answerName = (a) => a === 'unsure' ? '看不清' : (CN_DIR[a] || a || '—');
   box.innerHTML = list.map(item => {
     const d = new Date(item.ts);
     const when = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -1488,7 +1542,25 @@ function renderHistory(){
       const value = v.worse ? '<0.1' : v.atCap ? `≥${v.decimal}` : v.decimal;
       return `${nm} ${value}`;
     }).join(' / ');
-    return `<div class="hist-item"><div><strong>${label}</strong> ${nums}</div><div class="muted">${when}</div></div>`;
+    const log = item.log || [];
+    const detail = log.length
+      ? `<details class="hist-detail"><summary>查看答题明细（${log.length} 题）</summary>
+          <table class="hist-table">
+            <thead><tr><th>#</th><th>眼别</th><th>题目</th><th>我选的</th><th>结果</th><th>logMAR</th></tr></thead>
+            <tbody>${log.map((t, i) => `<tr>
+              <td>${i + 1}</td><td>${t.eye || '—'}</td><td>${CN_DIR[t.dir] || t.dir || '—'}</td>
+              <td>${answerName(t.ans)}</td><td>${t.correct ? '✓' : '✗'}</td>
+              <td>${typeof t.level === 'number' ? t.level.toFixed(1) : '—'}</td>
+            </tr>`).join('')}</tbody>
+          </table></details>`
+      : '<div class="hist-empty">旧记录没有逐题明细（从 v0.9 起记录）</div>';
+    return `<div class="hist-item" style="display:block">
+      <div style="display:flex;justify-content:space-between;gap:12px">
+        <div><strong>${label}</strong> ${nums} <span class="muted small">· ${item.trials || 0} 题</span></div>
+        <div class="muted">${when}</div>
+      </div>
+      ${detail}
+    </div>`;
   }).join('');
 }
 

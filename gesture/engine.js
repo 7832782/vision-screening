@@ -77,7 +77,7 @@ export async function start(video, canvas, onAnswer, onStatus) {
   });
   video.srcObject = media;
   await video.play();
-  const gate = new AnswerGate();
+  const gate = new AnswerGate({ cooldownMs: 1000 });
   let active = true;
   let last = 0;
 

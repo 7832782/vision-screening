@@ -155,7 +155,7 @@
         onStatus('识别失败：' + (e.message || e));
       } finally {
         busy = false;
-        cooldownUntil = performance.now() + 500;
+        cooldownUntil = performance.now() + 1000;
       }
     }
 
@@ -179,6 +179,7 @@
         if (!active || busy) return;
         if (window.__ttsBusy) return;
         if (performance.now() < cooldownUntil) return;
+        if (performance.now() < (window.__answerMuteUntil || 0)) return;
         const d = ev.inputBuffer.getChannelData(0);
         const f = new Float32Array(d.length);
         f.set(d);
