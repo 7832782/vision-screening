@@ -53,9 +53,10 @@ const EDGES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,
 
 function draw(canvas, best, video) {
   if (!canvas || !video) return;
-  const rect = canvas.getBoundingClientRect();
-  const dw = rect.width || canvas.clientWidth;
-  const dh = rect.height || canvas.clientHeight;
+  const canvasRect = canvas.getBoundingClientRect();
+  const videoRect = video.getBoundingClientRect();
+  const dw = canvasRect.width || canvas.clientWidth;
+  const dh = canvasRect.height || canvas.clientHeight;
   if (!dw || !dh) return;
   const dpr = window.devicePixelRatio || 1;
   canvas.width = Math.round(dw * dpr);
@@ -66,15 +67,18 @@ function draw(canvas, best, video) {
   if (!best.landmarks) return;
 
   // 视频 CSS 是 object-fit: cover，画面会按比例放大并裁切；骨架必须按
-  // 同样的缩放/裁切映射，否则会整体偏移。不能直接用 video.videoWidth 当画布宽。
+  // 同样的缩放/裁切映射，否则会整体偏移。用 video 的实际显示框计算，
+  // 而不是假设 canvas 和 video 完全重合。
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   if (!vw || !vh) return;
-  const scale = Math.max(dw / vw, dh / vh);
+  const vrw = videoRect.width || dw;
+  const vrh = videoRect.height || dh;
+  const scale = Math.max(vrw / vw, vrh / vh);
   const rw = vw * scale;
   const rh = vh * scale;
-  const ox = (dw - rw) / 2;
-  const oy = (dh - rh) / 2;
+  const ox = (videoRect.left - canvasRect.left) + (vrw - rw) / 2;
+  const oy = (videoRect.top - canvasRect.top) + (vrh - rh) / 2;
   const pts = best.landmarks.map((p) => [ox + (1 - p.x) * rw, oy + p.y * rh]); // 镜像绘制
 
   ctx.strokeStyle = '#22d3ee';
