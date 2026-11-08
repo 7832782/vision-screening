@@ -1,7 +1,5 @@
 __pycache__/
 *.pdf
-tools/convert_pdf.py
-shots/convert_pdf.py
 
 # 其他 AI 的本地实验目录/模型，不入库
 _gesture_lab/
