@@ -23,7 +23,7 @@ export async function load(onStatus) {
     const make = (d) => HandLandmarker.createFromOptions(vision, {
       baseOptions: { modelAssetPath: './gesture/models/hand_landmarker.task', delegate: d },
       runningMode: 'VIDEO',
-      numHands: 2,
+      numHands: 1,
       minHandDetectionConfidence: 0.5,
       minHandPresenceConfidence: 0.5,
       minTrackingConfidence: 0.5,
@@ -154,8 +154,5 @@ export async function start(video, canvas, onAnswer, onStatus) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
     },
-    resetQuestion() { gate.resetQuestion(); },
   };
 }
-
-export function resetQuestion() { /* 当前会话由 start 返回的句柄管理 */ }

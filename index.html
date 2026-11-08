@@ -3,13 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#f7f4ed">
-<link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="视力筛查">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>视力筛查 · 老人友好版</title>
 <style>
 /* ============================================================
@@ -23,7 +17,6 @@
   --card:#ffffff;
   --line:#e2dccd;
   --accent:#0d6b5c;
-  --accent-dark:#084d42;
   --warn:#a8541c;
   --bad:#a3241c;
   --good:#0d6b5c;
@@ -67,7 +60,6 @@ button{font-family:inherit}
 .card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px 22px;box-shadow:var(--shadow)}
 .muted{color:var(--muted)}
 .small{font-size:.86em}
-.center{text-align:center}
 h1{font-size:clamp(28px,3.2vw+14px,44px);line-height:1.2;margin:.1em 0}
 h2{font-size:clamp(22px,1.8vw+14px,32px);margin:.1em 0}
 h3{font-size:clamp(19px,1.2vw+13px,26px);margin:.1em 0}
@@ -311,7 +303,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       <div class="logo">E</div>
       <h1>视力筛查</h1>
       <p class="small">用手机或一体机，几分钟测一测远、近视力</p>
-      <p class="muted small" style="margin-top:10px">v0.9.5 · 2026-11-08 · 手势预览不裁切 v3</p>
+      <p class="muted small" style="margin-top:10px">v0.9.6 · 2026-11-08 · 精简版</p>
     </div>
     <div class="card small">
       <p><strong>怎么用：</strong>坐好，屏幕亮度调到最大。看屏幕上的「E」，用<strong>手指滑动</strong>或<strong>按方向键</strong>回答它的开口朝哪边。看不清就猜一个。</p>
@@ -384,15 +376,6 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
     <div class="row">
       <button class="btn" data-action="calib-done">卡好了，完成校准</button>
     </div>
-    <details class="card small">
-      <summary style="font-weight:700;cursor:pointer">没有合适的物品？用屏幕对角线估算（一体机）</summary>
-      <p class="muted">输入屏幕对角线英寸数，系统按屏幕分辨率估算。精度不如实物校准。</p>
-      <div class="row" style="align-items:center">
-        <input id="diagInput" inputmode="decimal" placeholder="例如 21.5"
-               style="flex:1;min-height:64px;font-size:1.1em;padding:0 14px;border-radius:16px;border:2px solid var(--line);background:#fff">
-        <button class="btn secondary" data-action="calib-diag" style="flex:none">按对角线计算</button>
-      </div>
-    </details>
     <div class="row" style="margin-top:auto">
       <button class="btn ghost" data-go="home">稍后再说</button>
     </div>
@@ -463,7 +446,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
     <div class="card small">
       <p>站到设备前 1.5–3 米，先把手放下，再用<strong>食指</strong>指向「上 / 下 / 左 / 右」，保持约半秒。</p>
       <p class="muted" id="gestureTestInfo">首次启用需要加载约 17 MB 离线模型</p>
-      <p class="muted small" id="gestureBuild">骨架映射 v3（不裁切）· 2026-11-08</p>
+      <p class="muted small" id="gestureBuild">骨架映射 v3（不裁切）· v0.9.6</p>
     </div>
     <div class="camera-stage">
       <video id="gestureTestVideo" autoplay muted playsinline></video>
@@ -514,10 +497,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 <!-- ==================== 设置 ==================== -->
 <section class="screen" data-screen="settings">
   <div class="wrap">
-    <div class="row" style="align-items:center;justify-content:space-between">
-      <h2 style="margin:0">设置</h2>
-      <button class="btn ghost" data-go="home" style="flex:none">完成</button>
-    </div>
+    <h2 style="margin:0 0 4px">设置</h2>
     <div class="card">
       <div class="set-row">
         <div><div style="font-weight:700">语音提示</div><div class="muted small">用语音念出每一步的操作</div></div>
@@ -553,7 +533,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <button class="btn secondary" data-action="fullscreen" style="flex:none;min-height:52px">切换</button>
       </div>
       <div class="set-row">
-        <div><div style="font-weight:700">程序版本</div><div class="muted small" id="appVersion">v0.9.5 · 2026-11-08 · 手势预览不裁切 v3</div></div>
+        <div><div style="font-weight:700">程序版本</div><div class="muted small" id="appVersion">v0.9.6 · 2026-11-08 · 精简版</div></div>
       </div>
       <div class="set-row">
         <div><div style="font-weight:700">清除历史记录</div><div class="muted small">本机保存的所有测试结果</div></div>
@@ -561,8 +541,8 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       </div>
     </div>
     <div class="disclaimer">
-      视力筛查程序 v0.9.5 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
-      语音/手势仅在你开启时加载本地模型；数据不离开本机。版本号：2026-11-08 · 手势预览不裁切 v3。
+      视力筛查程序 v0.9.6 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
+      语音/手势仅在你开启时加载本地模型；数据不离开本机。版本号：2026-11-08 · 精简版。
     </div>
     <div class="row" style="margin-top:auto">
       <button class="btn ghost" data-go="home">返回</button>
@@ -593,8 +573,6 @@ const LEVELS  = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0];
 const DECIMAL = ['0.10','0.125','0.16','0.20','0.25','0.32','0.40','0.50','0.63','0.80','1.00'];
 // 对应 Snellen 6/x
 const SNELLEN = ['6/60','6/48','6/38','6/30','6/24','6/19','6/15','6/12','6/9.5','6/7.5','6/6'];
-// 测试距离（米）
-const TEST_DIST = { distance: 2.0, near: 0.40 };
 // 每组 5 个视标，答对 4 个算通过（WHOeyes 规则）
 const PER_LEVEL = 5, PASS_NEED = 4;
 // 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
@@ -622,7 +600,6 @@ const SIM_DELAY = QS.has('simdelay') ? parseFloat(QS.get('simdelay')) : 100;
 const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
-  del(k){ try { localStorage.removeItem(k); } catch(e){} },
 };
 
 const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2,
@@ -806,9 +783,6 @@ async function startGestureTestAnswer() {
       return true;
     }, (best, ev) => {
       if (DEBUG) window.__gestureTestDebug = { best, ev, at: Date.now() };
-      if (best && best.gesture && best.gesture !== 'none' && DIRS.indexOf(best.gesture) >= 0) {
-        // 仅用于调试/状态，不直接作答（由 gate 的 onAnswer 触发）
-      }
     });
   } catch (e) {
     pip.hidden = true;
@@ -877,7 +851,6 @@ const CALIB_GROUPS = [
     { id:'a6s', label:'A6 纸短边（105 mm）', mm:105, note:'小屏幕' },
     { id:'a5s', label:'A5 纸短边（148 mm）', mm:148, note:'中等屏幕' },
     { id:'a4s', label:'A4 纸短边（210 mm）', mm:210, note:'一体机推荐' },
-    { id:'a4l', label:'A4 纸长边（297 mm）', mm:297, note:'大屏一体机' },
   ]},
   { label: '其他', items: [
     { id:'coin', label:'1 元硬币（直径 25 mm）', mm:25.0, note:'小屏幕' },
@@ -888,6 +861,8 @@ const CALIB_OBJECTS = CALIB_GROUPS.flatMap(g => g.items);
 let calibObj = store.get('vs.calibObj', 'card_s');
 let customLenMm = Number(store.get('vs.customLenMm', 150)) || 150;
 let calibLenPx = 300;
+// 未校准时的起步猜测：0.19 mm/CSS px ≈ 134 ppi，用户拖一下就能对准
+const DEFAULT_MM_PER_CSS = 0.19;
 let calibDragging = false;
 
 function objOf(id){ return CALIB_OBJECTS.find(o => o.id === id) || CALIB_OBJECTS[0]; }
@@ -901,13 +876,6 @@ function calibMaxLen(){
   const st = calibStageEl();
   return Math.max(140, (st ? st.clientWidth : 320) - 36);
 }
-/* 用屏幕对角线估算 mm/CSSpx（兜底方案） */
-function estimateMmPerCss(diagIn){
-  const w = window.screen.width, h = window.screen.height;
-  const diagCss = Math.hypot(w, h) || 1;
-  return (diagIn * 25.4) / diagCss;
-}
-
 function renderCalibPicker(){
   const sel = $('#calibObjSelect');
   if (!sel) return;
@@ -924,11 +892,10 @@ function renderCalibPicker(){
 }
 
 function selectCalibObj(id){
-  if (!objOf(id)) id = 'card_s';
   calibObj = id;
   store.set('vs.calibObj', calibObj);
   renderCalibPicker();
-  const base = calib ? calib.mmPerCssPx : estimateMmPerCss(6.1);
+  const base = calib ? calib.mmPerCssPx : DEFAULT_MM_PER_CSS;
   calibLenPx = clamp(calibObjMm() / base, 80, calibMaxLen());
   paintCalib();
 }
@@ -938,7 +905,7 @@ function updateCustomLen(value){
   if (!(n > 0)) return;
   customLenMm = clamp(n, 5, 1000);
   store.set('vs.customLenMm', customLenMm);
-  const base = calib ? calib.mmPerCssPx : estimateMmPerCss(6.1);
+  const base = calib ? calib.mmPerCssPx : DEFAULT_MM_PER_CSS;
   calibLenPx = clamp(calibObjMm() / base, 80, calibMaxLen());
   paintCalib();
 }
@@ -977,10 +944,9 @@ function paintCalib(){
 
 function openCalib(){
   calibObj = store.get('vs.calibObj', calibObj || 'card_s');
-  if (!objOf(calibObj)) calibObj = 'card_s';
   renderCalibPicker();
   if (calib) calibLenPx = calibObjMm() / calib.mmPerCssPx;
-  else       calibLenPx = calibObjMm() / estimateMmPerCss(6.1);
+  else       calibLenPx = calibObjMm() / DEFAULT_MM_PER_CSS;
   showScreen('calib');
   requestAnimationFrame(paintCalib);
 }
@@ -1095,7 +1061,7 @@ function drawOptotype(dir, levelIndex){
       `<svg width="${size}" height="${size}" viewBox="0 0 5 5" style="transform:rotate(${rot}deg)">` +
         `<path d="${E_PATH}" fill="#000"/></svg></div>`;
 
-  session.lastRender = { size, stroke: size / 5, frame: drawFrame, gap, devRaw, k, snapped, logMAR };
+  session.lastRender = { size };
   session.questionShownAt = performance.now();
   updateHud();
 }
@@ -1124,7 +1090,6 @@ function answer(dir){
   const now = performance.now();
   const resolve = session.resolve;
   session.resolve = null;
-  session.answerAt = now;
   // 连续语音/手势的硬缓冲：作答后 1 秒内的新输入不接收
   session.continuousLockUntil = now + ANSWER_GAP_MS;
   window.__answerMuteUntil = session.continuousLockUntil;
@@ -1192,7 +1157,6 @@ async function runLevel(level){
 
     if (correct >= PASS_NEED) return { pass:true };
     if (shown - correct >= PER_LEVEL - PASS_NEED + 1) return { pass:false };  // 已不可能达标
-    if (shown >= PER_LEVEL) return { pass:false };
   }
 }
 
@@ -1219,7 +1183,6 @@ async function runEye(){
       if (firstFail >= 0) return { index:level, capped:false };
       if (level >= cap)   return { index:level, capped:true };
       const next = Math.min(level + 2, cap);
-      if (next === level) return { index:level, capped:false };
       level = next;
     } else {
       if (level === 0) return { worse:true, index:0 };
@@ -1561,9 +1524,6 @@ function renderSettings(){
   if (gaHint) gaHint.textContent = settings.gestureAnswer
     ? '已开启：先放下手，再用食指指方向'
     : '食指指方向作答，不联网；首次加载约 17 MB';
-  $$('#segNearDist button').forEach(b => {
-    b.setAttribute('aria-pressed', String(Number(b.dataset.near) === settings.nearDistance));
-  });
   const info = $('#calibInfo');
   if (calib && calib.mmPerCssPx > 0) {
     const dpr = window.devicePixelRatio || 1;
@@ -1631,15 +1591,12 @@ async function requestWakeLock(){
 function releaseWakeLock(){
   try { if (wakeLock) { wakeLock.release(); wakeLock = null; } } catch(e){}
 }
-let fsActive = false;
 function toggleFullscreen(){
   const el = document.documentElement;
   if (!document.fullscreenElement) {
     (el.requestFullscreen ? el.requestFullscreen() : Promise.reject()).catch?.(()=>{});
-    fsActive = true;
   } else {
     document.exitFullscreen?.();
-    fsActive = false;
   }
 }
 
@@ -1671,14 +1628,6 @@ document.addEventListener('click', (e) => {
         if (!calib && !SIM) { openCalib(); } else { showScreen('home'); }
         break;
       case 'calib-done': finishCalib(); break;
-      case 'calib-diag': {
-        const v = parseFloat($('#diagInput').value);
-        if (!(v > 3 && v < 120)) { alert('请输入 4–120 之间的英寸数'); break; }
-        calibLenPx = calibObjMm() / estimateMmPerCss(v);
-        paintCalib();
-        beep(660, .07);
-        break;
-      }
       case 'set-dist': {
         const v = parseFloat($('#customDist').value);
         if (!(v >= 1 && v <= 5)) { toast('请输入 1–5 米之间的距离'); break; }

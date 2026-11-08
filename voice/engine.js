@@ -211,8 +211,8 @@
       onStatus('已停止');
     }
 
-    return { start, stop, isActive: () => active };
+    return { start, stop };
   }
 
-  window.VoiceEngine = { load, recognize, createListener, mapText, get modelLoadMs() { return modelMs; } };
+  window.VoiceEngine = { load, createListener };
 })();
