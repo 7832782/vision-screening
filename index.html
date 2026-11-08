@@ -333,7 +333,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       <button class="big-card" data-start="distance">
         <div class="ico">🖥️</div>
         <div class="t">远距离视力</div>
-        <div class="s">2 米距离 · 需要一位助手帮忙操作</div>
+        <div class="s">2 米距离 · 开启语音/手势后可一个人完成</div>
         <div class="meta">约 5 分钟 · 先测右眼再测左眼</div>
       </button>
       <button class="big-card" data-start="near">
@@ -1286,9 +1286,27 @@ function intermission(eye, res){
         <div class="ov-title">${eye.label} 测完了</div>
         <div class="ov-sub">${describeResult(res)}</div>
         <div class="ov-num" style="font-size:clamp(40px,6vw,64px)">😊</div>
-        <button class="btn big" id="ovNext" style="min-width:min(420px,80vw)">换另一只眼</button>
+        <div class="ov-sub">换另一只眼 · <strong id="ovCountdown">5</strong> 秒后自动继续</div>
+        <button class="btn big" id="ovNext" style="min-width:min(420px,80vw)">立即换另一只眼</button>
       </div>`);
-    $('#ovNext').onclick = () => { hideOverlay(); beep(660, .08); resolve(); };
+    let left = 5;
+    let finished = false;
+    let timer = null;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearInterval(timer);
+      hideOverlay();
+      beep(660, .08);
+      resolve();
+    };
+    $('#ovNext').onclick = done;
+    timer = setInterval(() => {
+      left--;
+      const el = $('#ovCountdown');
+      if (el) el.textContent = String(Math.max(0, left));
+      if (left <= 0) done();
+    }, 1000);
   });
 }
 function describeResult(r){
@@ -1312,13 +1330,13 @@ function renderSetup(type){
     ? `远距离视力测试（${settings.distanceM || 2} 米）`
     : `近距离视力测试（${settings.nearDistance} 厘米）`;
   $('#setupBody').innerHTML = isFar ? `
-    <h3>需要两个人</h3>
+    <h3>一个人也能做</h3>
     <ul>
       <li>你坐在离屏幕 <strong>${settings.distanceM || 2} 米</strong> 的地方，正对屏幕、眼睛和屏幕差不多高</li>
-      <li>请一位家人或医护人员<strong>拿着设备</strong>，站在你旁边</li>
+      <li>把设备放在<strong>桌面或支架</strong>上，正对你即可；开启语音/手势后<strong>不用请助手拿设备</strong></li>
       <li>把屏幕<strong>亮度调到最大</strong>；平时戴眼镜就<strong>戴着测</strong></li>
       <li>先<strong>遮住左眼</strong>测右眼，做完再遮右眼测左眼</li>
-      <li>你看清 E 的开口方向后<strong>用手指一下</strong>，助手按方向<strong>滑动屏幕</strong>或点下面四个方向键</li>
+      <li>看清 E 的开口方向后，直接<strong>说方向</strong>或用<strong>食指指向</strong>对应方向；也可以用按键/滑动</li>
       <li>看不清就<strong>猜一个</strong>，不要眯眼</li>
     </ul>
     <h3>测试距离</h3>
@@ -1334,8 +1352,7 @@ function renderSetup(type){
     </div>
     <p class="muted small" id="distTip">${distTip(settings.distanceM || 2)}</p>
     ${capWarn}
-    <p class="muted small">助手请不要看屏幕上的 E，避免影响结果。</p>
-    <p class="muted small">作答方式：助手按患者指的方向<strong>滑动屏幕</strong>，或点击下方四个方向键。</p>
+    <p class="muted small">如果使用按键/滑动，建议把设备放在支架上，或请家人在旁边帮忙；开启语音/手势后一个人就能完成。</p>
   ` : `
     <h3>一个人就能做</h3>
     <ul>
