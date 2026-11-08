@@ -146,9 +146,10 @@
       frames = []; pre = []; speech = false; silence = 0;
       busy = true;
       try {
-        onStatus('正在识别…');
         const x = resample(all, ctx ? ctx.sampleRate : SR);
-        if (x.length < 1600) return;
+        // 太短的一段没有识别价值：明确说一句，而不是停在"正在识别…"让用户以为卡住
+        if (x.length < 1600) { onStatus('刚才太短了，请再说一次'); return; }
+        onStatus('正在识别…');
         const r = await recognize(x);
         onResult(r);
       } catch (e) {

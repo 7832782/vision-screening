@@ -1,6 +1,6 @@
 # AGENTS.md — 老人视力筛查程序
 
-给**下次在这个仓库里改代码的 AI / 人**看的硬规则。读完这一页就能动手，不必先通读 1869 行的 `index.html`。
+给**下次在这个仓库里改代码的 AI / 人**看的硬规则。读完这一页就能动手，不必先通读 1893 行的 `index.html`。
 
 项目是什么、怎么跑、文档在哪：见 [README.md](README.md)。
 
@@ -19,7 +19,7 @@
 
 | 动作 | 怎么查 |
 |---|---|
-| **升版本号**（三处 + 免责声明一行） | `grep -n "v0\.9" index.html` → 欢迎页、手势试音页 `#gestureBuild`、设置页 `#appVersion`、免责声明 |
+| **升版本号** | 只改 `index.html` 里的 `const BUILD`（577 行附近）一处：欢迎页、设置页 `#appVersion`、手势试音页 `#gestureBuild` 和控制台都读它 |
 | **改过 `gesture/` `voice/` 下的模块文件，就升 import 的 `?v=`** | `grep -n "gesture/engine.js" index.html` 里的查询串是缓存开关，不改它用户会拿到旧缓存，白改了 |
 | 语法自检 | `python tools/syntax_check.py`（把内联 `<script>` 按 `.mjs` 解析，能抓语法错误） |
 | 受影响截图重截 | `shots/` 里的图会过期；README 引用的图错了比没图更糟 |

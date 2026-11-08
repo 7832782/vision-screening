@@ -303,7 +303,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       <div class="logo">E</div>
       <h1>视力筛查</h1>
       <p class="small">用手机或一体机，几分钟测一测远、近视力</p>
-      <p class="muted small" style="margin-top:10px">v0.9.6 · 2026-11-08 · 精简版</p>
+      <p class="muted small" data-build style="margin-top:10px"></p>
     </div>
     <div class="card small">
       <p><strong>怎么用：</strong>坐好，屏幕亮度调到最大。看屏幕上的「E」，用<strong>手指滑动</strong>或<strong>按方向键</strong>回答它的开口朝哪边。看不清就猜一个。</p>
@@ -446,7 +446,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
     <div class="card small">
       <p>站到设备前 1.5–3 米，先把手放下，再用<strong>食指</strong>指向「上 / 下 / 左 / 右」，保持约半秒。</p>
       <p class="muted" id="gestureTestInfo">首次启用需要加载约 17 MB 离线模型</p>
-      <p class="muted small" id="gestureBuild">骨架映射 v3（不裁切）· v0.9.6</p>
+      <p class="muted small" id="gestureBuild" data-build></p>
     </div>
     <div class="camera-stage">
       <video id="gestureTestVideo" autoplay muted playsinline></video>
@@ -533,16 +533,12 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <button class="btn secondary" data-action="fullscreen" style="flex:none;min-height:52px">切换</button>
       </div>
       <div class="set-row">
-        <div><div style="font-weight:700">程序版本</div><div class="muted small" id="appVersion">v0.9.6 · 2026-11-08 · 精简版</div></div>
+        <div><div style="font-weight:700">程序版本</div><div class="muted small" id="appVersion" data-build></div></div>
       </div>
       <div class="set-row">
         <div><div style="font-weight:700">清除历史记录</div><div class="muted small">本机保存的所有测试结果</div></div>
         <button class="btn danger" data-action="clear-history" style="flex:none;min-height:52px">清除</button>
       </div>
-    </div>
-    <div class="disclaimer">
-      视力筛查程序 v0.9.6 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
-      语音/手势仅在你开启时加载本地模型；数据不离开本机。版本号：2026-11-08 · 精简版。
     </div>
     <div class="row" style="margin-top:auto">
       <button class="btn ghost" data-go="home">返回</button>
@@ -577,6 +573,8 @@ const SNELLEN = ['6/60','6/48','6/38','6/30','6/24','6/19','6/15','6/12','6/9.5'
 const PER_LEVEL = 5, PASS_NEED = 4;
 // 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
 const ANSWER_GAP_MS = 1000;
+// 构建号：改版本只改这一行（欢迎页 / 设置页 / 手势试音页 / 控制台都读它）
+const BUILD = 'v0.9.7 · 2026-11-08';
 // 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
 const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
 const DIRS = ['up','right','down','left'];
@@ -757,10 +755,26 @@ async function startGestureSession(video, canvas, onAnswer, onStatus) {
   gestureSession = await window.GestureEngine.start(video, canvas, onAnswer, onStatus);
   return gestureSession;
 }
-async function ensureGestureEngine() {
-  if (window.GestureEngine) return;
-  await new Promise((resolve) => window.addEventListener('vs-gesture-engine-ready', resolve, { once: true }));
-  if (!window.GestureEngine) throw new Error('手势模块未加载');
+/* 等手势模块就绪。模块脚本加载失败（老 WebView 不支持 type=module、或 404）时必须超时报错，
+   否则开关会一直停在"正在加载"，用户以为程序卡死。 */
+function ensureGestureEngine() {
+  if (window.GestureEngine) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      window.removeEventListener('vs-gesture-engine-ready', onReady);
+    };
+    const onReady = () => {
+      cleanup();
+      if (window.GestureEngine) resolve();
+      else reject(new Error('手势模块未加载'));
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('手势模块加载超时（8 秒），可能需要更新浏览器'));
+    }, 8000);
+    window.addEventListener('vs-gesture-engine-ready', onReady);
+  });
 }
 function stopGestureAnswer() {
   if (gestureSession) { try { gestureSession.stop(); } catch (e) {} gestureSession = null; }
@@ -1768,8 +1782,15 @@ $('#btnPause').addEventListener('click', () => {
     </div>`);
   $('#ovResume').onclick = () => { session.paused = false; hideOverlay(); };
   $('#ovQuit').onclick = () => {
-    session.aborted = true;
-    session.paused = false;
+    const s = session;
+    session = null;
+    pendingStart = null;
+    if (s) {
+      s.aborted = true;
+      s.paused = false;
+      // 让卡在 await getAnswer() 的链路立刻结束，否则 Promise 和闭包会一直挂着
+      if (s.resolve) { const r = s.resolve; s.resolve = null; r(null); }
+    }
     hideOverlay();
     $('#answerbar').hidden = true;
     releaseWakeLock();
@@ -1841,6 +1862,9 @@ window.addEventListener('unhandledrejection', (e) => {
 (function boot(){
   // 校验校准值是否合理
   if (calib && !(calib.mmPerCssPx > 0.05 && calib.mmPerCssPx < 5)) calib = null;
+
+  $$('[data-build]').forEach((el) => { el.textContent = BUILD; });
+  console.info('[vision-screening] ' + BUILD);
 
   showScreen('welcome');
   renderSettings();
