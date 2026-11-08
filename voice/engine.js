@@ -177,7 +177,6 @@
       sink.gain.value = 0;
       node.onaudioprocess = (ev) => {
         if (!active || busy) return;
-        if (window.__ttsBusy) return;
         if (performance.now() < cooldownUntil) return;
         if (performance.now() < (window.__answerMuteUntil || 0)) return;
         const d = ev.inputBuffer.getChannelData(0);

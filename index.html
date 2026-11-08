@@ -539,14 +539,6 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <div><div style="font-weight:700">按键音</div><div class="muted small">每次作答给一个轻提示音</div></div>
         <button class="switch" id="swBeep" role="switch" aria-checked="true"></button>
       </div>
-      <div class="set-row wrap-mobile">
-        <div><div style="font-weight:700">近距离测试距离</div><div class="muted small">默认 40 厘米（标准）</div></div>
-        <div class="seg" id="segNearDist">
-          <button data-near="33">33 cm</button>
-          <button data-near="40">40 cm</button>
-          <button data-near="45">45 cm</button>
-        </div>
-      </div>
       <div class="set-row">
         <div><div style="font-weight:700">本机可测范围</div><div class="muted small" id="capInfo">—</div></div>
       </div>
@@ -646,12 +638,6 @@ function devPerMm(){
    3. 语音 / 提示音
    ===================================================================== */
 let audioCtx = null;
-let ttsBusy = false;
-let ttsTimer = null;
-function setTtsBusy(v) {
-  ttsBusy = !!v;
-  window.__ttsBusy = ttsBusy;
-}
 function beep(freq = 880, dur = 0.06, gain = 0.05){
   if (!settings.beep) return;
   try {
@@ -674,14 +660,8 @@ function speak(text){
     const vs = window.speechSynthesis.getVoices() || [];
     const zh = vs.find(v => /zh|Chinese/i.test(v.lang));
     if (zh) u.voice = zh;
-    const clear = () => { setTtsBusy(false); };
-    setTtsBusy(true);
-    u.onend = clear;
-    u.onerror = clear;
     window.speechSynthesis.speak(u);
-    clearTimeout(ttsTimer);
-    ttsTimer = setTimeout(clear, 5000);
-  } catch(e) { setTtsBusy(false); }
+  } catch(e) {}
 }
 if ('speechSynthesis' in window) {
   // 部分浏览器需要预热一下 voice 列表
@@ -1086,26 +1066,31 @@ function drawOptotype(dir, levelIndex){
     snapped = false;
   }
   let gap = size / 2;                                // 拥挤框与视标的间距
+  const frame = size / 5;                            // 拥挤框边框（正常应等于笔画宽）
+  let drawFrame = frame;
 
-  // 屏幕放不下时：先压拥挤框，再等比缩视标
+  // 屏幕放不下完整拥挤框时：优先保留 E 的真实尺寸，只压缩边框和间距。
+  // 否则 5 米等大视标会把 gap 压成 0，E 就贴在黑框上，看起来像重叠。
   const avail = Math.min(w, h) * 0.94;
-  let total = size + 2 * gap + 2 * stroke;
-  if (total > avail) {
-    gap = Math.max(0, (avail - size - 2 * stroke) / 2);
-    total = size + 2 * gap + 2 * stroke;
-    if (total > avail && size > 0) {
-      const s = avail / total;
-      size *= s; stroke *= s; gap *= s;
+  const desiredTotal = size + 2 * gap + 2 * drawFrame;
+  if (desiredTotal > avail) {
+    const extra = Math.max(0, avail - size);
+    drawFrame = Math.min(frame, extra * 0.25);
+    gap = Math.max(0, (extra - 2 * drawFrame) / 2);
+    // 极端情况下 E 本身比舞台还大，只能等比缩小，避免画到屏幕外
+    if (size > avail && size > 0) {
+      const s = avail / size;
+      size *= s; gap *= s; drawFrame *= s;
     }
   }
 
   const rot = DIR_ROT[dir];
   stage.innerHTML =
-    `<div class="crowd" style="border-width:${stroke}px;padding:${gap}px">` +
+    `<div class="crowd" style="border-width:${drawFrame}px;padding:${gap}px">` +
       `<svg width="${size}" height="${size}" viewBox="0 0 5 5" style="transform:rotate(${rot}deg)">` +
         `<path d="${E_PATH}" fill="#000"/></svg></div>`;
 
-  session.lastRender = { size, stroke, gap, devRaw, k, snapped, logMAR };
+  session.lastRender = { size, stroke: size / 5, frame: drawFrame, gap, devRaw, k, snapped, logMAR };
   session.questionShownAt = performance.now();
   updateHud();
 }
@@ -1326,6 +1311,13 @@ function renderSetup(type){
   const capWarn = LEVELS[cap] > 0.3
     ? `<div class="calib-warn"><strong>这台屏幕在当前距离最多只能测到小数视力 ${DECIMAL[cap]}</strong>（受屏幕像素密度限制）。即使你全部答对，结果也只会显示「≥${DECIMAL[cap]} · 受屏幕限制」，不代表真实视力。建议换更高分辨率的手机/平板或 4K 屏；远距 2 米一般不受影响。</div>`
     : '';
+  const dpm = devPerMm();
+  const dpr = window.devicePixelRatio || 1;
+  const stageApprox = Math.min(window.innerWidth - 20, window.innerHeight - 168);
+  const largestCss = dpm ? optotypeHeightMm(1.0, distM) * dpm / dpr : 0;
+  const fitWarn = isFar && largestCss > stageApprox * 0.9
+    ? `<div class="calib-warn">当前距离下最大的 E（约 ${Math.round(largestCss)}px）已经接近/超过手机屏幕可用区域，黑框会被压缩或隐藏。建议把距离缩短到 3 米以内，或换更大的屏幕。</div>`
+    : '';
   $('#setupTitle').textContent = isFar
     ? `远距离视力测试（${settings.distanceM || 2} 米）`
     : `近距离视力测试（${settings.nearDistance} 厘米）`;
@@ -1352,6 +1344,7 @@ function renderSetup(type){
     </div>
     <p class="muted small" id="distTip">${distTip(settings.distanceM || 2)}</p>
     ${capWarn}
+    ${fitWarn}
     <p class="muted small">如果使用按键/滑动，建议把设备放在支架上，或请家人在旁边帮忙；开启语音/手势后一个人就能完成。</p>
   ` : `
     <h3>一个人就能做</h3>
@@ -1362,6 +1355,13 @@ function renderSetup(type){
       <li>看清 E 的开口方向后，<strong>向那个方向滑动屏幕</strong>，或点下面四个方向键</li>
       <li>看不清就<strong>猜一个</strong>，不要眯眼</li>
     </ul>
+    <h3>测试距离</h3>
+    <div class="seg" id="segNearDist" aria-label="近距测试距离">
+      <button data-near="33" aria-pressed="${settings.nearDistance === 33}">33 cm</button>
+      <button data-near="40" aria-pressed="${settings.nearDistance === 40}">40 cm（标准）</button>
+      <button data-near="45" aria-pressed="${settings.nearDistance === 45}">45 cm</button>
+    </div>
+    <p class="muted small">默认 40 厘米；选好后点击下面的「开始测试」。</p>
     <p class="muted small">测的过程中尽量保持头不动、距离不变。</p>
     ${capWarn}
     <p class="muted small">作答方式：<strong>向 E 开口的方向滑动屏幕</strong>，或点击下方四个方向键。</p>
@@ -1707,6 +1707,15 @@ document.addEventListener('click', (e) => {
     return;
   }
 
+  /* ---- 近距测试距离（在测试说明页选择） ---- */
+  if (t.dataset.near) {
+    settings.nearDistance = Number(t.dataset.near);
+    store.set('vs.settings', settings);
+    renderSetup('near');
+    beep(660, .05);
+    return;
+  }
+
   /* ---- 校准加减 ---- */
   if (t.dataset.calib) {
     const step = Number(t.dataset.calib) > 0 ? 1 : -1;
@@ -1861,13 +1870,6 @@ $('#swGestureAnswer')?.addEventListener('click', async () => {
   store.set('vs.settings', settings);
   renderSettings();
   toast(settings.gestureAnswer ? '手势作答已开启：测试时先放下手，再用食指指方向' : '手势作答已关闭');
-});
-$('#segNearDist').addEventListener('click', (e) => {
-  const b = e.target.closest('button[data-near]');
-  if (!b) return;
-  settings.nearDistance = Number(b.dataset.near);
-  store.set('vs.settings', settings);
-  renderSettings();
 });
 
 /* =====================================================================
