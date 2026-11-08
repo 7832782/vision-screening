@@ -191,6 +191,10 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   font-size:1.9em;color:#111;cursor:pointer;line-height:1;
 }
 #answerbar button:active{background:#eceff1}
+#answerbar button.flash{
+  background:var(--accent);border-color:var(--accent);color:#fff;
+  transform:scale(.96);box-shadow:0 0 0 4px rgba(13,107,92,.18);
+}
 .gap-wait{
   width:100%;height:100%;display:grid;place-items:center;color:var(--muted);
   font-size:clamp(20px,2.2vw+12px,30px);font-weight:700;letter-spacing:.04em;
@@ -418,9 +422,9 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   <div id="stage"></div>
   <div id="answerbar" hidden>
     <button data-ans="up" aria-label="向上">↑</button>
-    <button data-ans="right" aria-label="向右">→</button>
     <button data-ans="down" aria-label="向下">↓</button>
     <button data-ans="left" aria-label="向左">←</button>
+    <button data-ans="right" aria-label="向右">→</button>
   </div>
   <div id="gesturePip" hidden>
     <video id="pipVideo" autoplay muted playsinline></video>
@@ -1110,6 +1114,21 @@ function drawOptotype(dir, levelIndex){
    8. 作答输入
    ===================================================================== */
 let swipeStart = null;
+let answerFlashTimer = null;
+function flashAnswerButton(dir){
+  const buttons = $$('#answerbar button');
+  if (!buttons.length) return;
+  buttons.forEach(b => b.classList.remove('flash'));
+  const btn = document.querySelector(`#answerbar button[data-ans="${dir}"]`);
+  if (!btn) return;
+  // 强制一次重排，保证连续两次选同一个方向也会重新闪
+  void btn.offsetWidth;
+  btn.classList.add('flash');
+  clearTimeout(answerFlashTimer);
+  answerFlashTimer = setTimeout(() => {
+    buttons.forEach(b => b.classList.remove('flash'));
+  }, 380);
+}
 function answer(dir){
   if (!session || !session.resolve || session.paused) return false;
   const now = performance.now();
@@ -1119,6 +1138,7 @@ function answer(dir){
   // 连续语音/手势的硬缓冲：作答后 1 秒内的新输入不接收
   session.continuousLockUntil = now + ANSWER_GAP_MS;
   window.__answerMuteUntil = session.continuousLockUntil;
+  if (DIRS.indexOf(dir) >= 0) flashAnswerButton(dir);
   resolve(dir);
   return true;
 }
