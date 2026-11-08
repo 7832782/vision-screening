@@ -79,7 +79,10 @@ li{margin:.35em 0}
 
 .cards{display:grid;grid-template-columns:1fr;gap:14px}
 @media (orientation:landscape) and (min-width:820px){
-  .cards{grid-template-columns:1fr 1fr}
+  /* 横屏（一体机）：两列、垂直居中、卡片加高且内容居中，避免大屏上一片空白 */
+  .cards{grid-template-columns:1fr 1fr;flex:1;align-content:center}
+  .cards .big-card{min-height:min(40vh,320px);justify-content:center}
+  .cards .big-card .meta{margin-top:14px}
 }
 .big-card{
   background:var(--card);border:2px solid var(--line);border-radius:26px;
@@ -574,7 +577,7 @@ const PER_LEVEL = 5, PASS_NEED = 4;
 // 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
 const ANSWER_GAP_MS = 1000;
 // 构建号：改版本只改这一行（欢迎页 / 设置页 / 手势试音页 / 控制台都读它）
-const BUILD = 'v0.9.7 · 2026-11-08';
+const BUILD = 'v0.9.8 · 2026-11-08';
 // 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
 const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
 const DIRS = ['up','right','down','left'];
