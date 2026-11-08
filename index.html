@@ -1904,7 +1904,8 @@ window.addEventListener('unhandledrejection', (e) => {
 })();
 </script>
 <script type="module">
-  import * as GestureEngine from './gesture/engine.js';
+  // 带版本参数，避免手机/电脑浏览器缓存旧的手势绘制代码（骨架坐标修复）
+  import * as GestureEngine from './gesture/engine.js?v=20261108-gesture-map';
   window.GestureEngine = GestureEngine;
   window.dispatchEvent(new Event('vs-gesture-engine-ready'));
 </script>
