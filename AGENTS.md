@@ -71,7 +71,11 @@ git push origin main
 
 - **`file://` 打开 AI 模块必然失败**，不是 bug，是浏览器限制。本地测试一律起 HTTP 服务。
 - **Vosk 模型 URL 必须是绝对地址**：Vosk 跑在 Blob worker 里，相对路径会按站点根解析，GitHub Pages 子目录下直接 404。
-- **手势骨架要和视频对齐**：视频用 `object-fit: cover`，骨架必须按 `video.getBoundingClientRect()` 的**实际显示框**做缩放 + 裁切 + 镜像映射；并且视频元素要 `position:absolute; inset:0`，否则会被 grid 撑得比 canvas 高。两者都改对才不歪。
+- **手势骨架要和视频对齐**，三件事必须同时对：
+  1. 视频用 `object-fit: contain`（**不是 cover**）——cover 会裁掉画面，手机竖屏时举起的手直接出框；
+  2. 骨架按 `Math.min(vrw/vw, vrh/vh)` 缩放 + 居中，与 contain 一致；
+  3. 两端都按 `getBoundingClientRect()` 的**实际显示框**算，且视频元素要 `position:absolute; inset:0`（否则被 grid 撑得比 canvas 高）。
+  改完必须打印 `videoRect / canvasRect` 和骨架首点坐标验证，别只看"画上了没有"。
 - **`?sim=` 模式下不许启动真实的麦克风 / 摄像头**（会挂测试）。
 - 改动前先 `git status` 确认工作区干净；这个项目一直是「改一小步、验证、提交」的节奏。
 

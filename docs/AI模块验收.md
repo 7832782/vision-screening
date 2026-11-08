@@ -65,10 +65,12 @@
 | **按钮闪烁反馈** | 老人需要确认「我说的被听到了」 | `flashAnswerButton()`，四种作答方式共用 |
 | **骨架映射 v2** | 视频用 `object-fit: cover` 会裁切，骨架却按未裁切的坐标画；另外视频元素被 grid 撑得比 canvas 高 112 px | `gesture/engine.js` `draw()`：按 `video.getBoundingClientRect()` 的**实际显示框**做缩放 + 裁切 + 镜像映射；视频元素改 `position:absolute; inset:0` |
 | **模块 URL 加 `?v=` 参数** | 改了 `engine.js` 但浏览器用旧缓存，用户以为没改 | `import … from './gesture/engine.js?v=20261108-gesture-map2'` |
+| **预览改 contain + 框跟随画面比例**（v0.9.5） | 手机竖屏的流是 480×640，4:3 预览框用 `cover` 会把上下各裁 105 px，举起的手被裁到框外，骨架点落到画布负坐标 → 用户看到「手在画面里、点不在手上」 | `gesture/engine.js` `draw()`（`min` 缩放）+ `start()`（设 `aspect-ratio`）；两条 video CSS 改 `contain` |
 | **试音页显示版本号** | 只有一个可见构建号才能确认改动生效 | `#gestureBuild` / 设置页 `#appVersion` / 欢迎页 |
 
-> 骨架映射踩了两次：第一次只修了 cover 映射，点还是歪，因为视频元素本身比 canvas 高，
-> 两者坐标系不同。**修布局和修映射必须同时做**。
+> 骨架映射踩了三次：第一次只修 cover 映射（点还歪）；第二次发现视频元素比 canvas 高 112 px（修对了映射，
+> 但**画面本身被裁掉**）；第三次才定位到 `cover` 把举起的手裁出了可见区。
+> 现在的验证脚本会打印 `videoRect / canvasRect` 和骨架首点坐标，三次数值都在文档里留了记录。
 
 ## 5. 还没验证的
 
