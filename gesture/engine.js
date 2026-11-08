@@ -66,15 +66,17 @@ function draw(canvas, best, video) {
   ctx.clearRect(0, 0, dw, dh);
   if (!best.landmarks) return;
 
-  // 视频 CSS 是 object-fit: cover，画面会按比例放大并裁切；骨架必须按
-  // 同样的缩放/裁切映射，否则会整体偏移。用 video 的实际显示框计算，
+  // 视频 CSS 用 object-fit: contain（不裁切），所以按 min 缩放、内容居中；
+  // 骨架必须用同一套缩放/居中，否则会整体偏移。用 video 的实际显示框计算，
   // 而不是假设 canvas 和 video 完全重合。
+  // 为什么不用 cover：手机竖屏拿到的相机流常是 480×640，预览框偏横，cover 会把
+  // 画面上下裁掉一百多像素——举起的手直接被裁到框外，看起来就像"点对不上手"。
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   if (!vw || !vh) return;
   const vrw = videoRect.width || dw;
   const vrh = videoRect.height || dh;
-  const scale = Math.max(vrw / vw, vrh / vh);
+  const scale = Math.min(vrw / vw, vrh / vh);
   const rw = vw * scale;
   const rh = vh * scale;
   const ox = (videoRect.left - canvasRect.left) + (vrw - rw) / 2;
@@ -105,6 +107,13 @@ export async function start(video, canvas, onAnswer, onStatus) {
   });
   video.srcObject = media;
   await video.play();
+  // 预览框跟随实际画面比例，适配后 contain 就不会出现黑边，构图和骨架都好对
+  try {
+    const stage = canvas && canvas.parentElement;
+    if (stage && video.videoWidth && video.videoHeight) {
+      stage.style.aspectRatio = video.videoWidth + ' / ' + video.videoHeight;
+    }
+  } catch (e) {}
   const gate = new AnswerGate({ cooldownMs: 1000 });
   let active = true;
   let last = 0;
@@ -136,6 +145,10 @@ export async function start(video, canvas, onAnswer, onStatus) {
       active = false;
       try { media.getTracks().forEach((t) => t.stop()); } catch (e) {}
       video.srcObject = null;
+      try {
+        const stage = canvas && canvas.parentElement;
+        if (stage) stage.style.aspectRatio = '';
+      } catch (e) {}
       if (canvas) {
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);

@@ -244,7 +244,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   position:relative;background:#0d0f12;border-radius:22px;overflow:hidden;
   aspect-ratio:4/3;max-height:52vh;width:100%;display:grid;place-items:center;flex:none;
 }
-.camera-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+.camera-stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scaleX(-1);display:block}
 .camera-stage canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
 .camera-hint{
   position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;
@@ -256,7 +256,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   z-index:6;background:#000;box-shadow:0 6px 22px rgba(0,0,0,.35);
 }
 #gesturePip[hidden]{display:none}
-#gesturePip video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block}
+#gesturePip video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scaleX(-1);display:block}
 #gesturePip canvas{position:absolute;inset:0;width:100%;height:100%;z-index:2}
 #gesturePip .lbl{position:absolute;left:0;right:0;top:0;background:rgba(0,0,0,.55);color:#fff;font-size:11px;text-align:center;padding:2px 0}
 .ai-status{font-size:.85em;color:var(--muted);margin-top:6px}
@@ -311,7 +311,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       <div class="logo">E</div>
       <h1>视力筛查</h1>
       <p class="small">用手机或一体机，几分钟测一测远、近视力</p>
-      <p class="muted small" style="margin-top:10px">v0.9.4 · 2026-11-08 · 手势骨架映射 v2</p>
+      <p class="muted small" style="margin-top:10px">v0.9.5 · 2026-11-08 · 手势预览不裁切 v3</p>
     </div>
     <div class="card small">
       <p><strong>怎么用：</strong>坐好，屏幕亮度调到最大。看屏幕上的「E」，用<strong>手指滑动</strong>或<strong>按方向键</strong>回答它的开口朝哪边。看不清就猜一个。</p>
@@ -463,7 +463,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
     <div class="card small">
       <p>站到设备前 1.5–3 米，先把手放下，再用<strong>食指</strong>指向「上 / 下 / 左 / 右」，保持约半秒。</p>
       <p class="muted" id="gestureTestInfo">首次启用需要加载约 17 MB 离线模型</p>
-      <p class="muted small" id="gestureBuild">骨架映射 v2 · 2026-11-08</p>
+      <p class="muted small" id="gestureBuild">骨架映射 v3（不裁切）· 2026-11-08</p>
     </div>
     <div class="camera-stage">
       <video id="gestureTestVideo" autoplay muted playsinline></video>
@@ -553,7 +553,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
         <button class="btn secondary" data-action="fullscreen" style="flex:none;min-height:52px">切换</button>
       </div>
       <div class="set-row">
-        <div><div style="font-weight:700">程序版本</div><div class="muted small" id="appVersion">v0.9.4 · 2026-11-08 · 手势骨架映射 v2</div></div>
+        <div><div style="font-weight:700">程序版本</div><div class="muted small" id="appVersion">v0.9.5 · 2026-11-08 · 手势预览不裁切 v3</div></div>
       </div>
       <div class="set-row">
         <div><div style="font-weight:700">清除历史记录</div><div class="muted small">本机保存的所有测试结果</div></div>
@@ -561,8 +561,8 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       </div>
     </div>
     <div class="disclaimer">
-      视力筛查程序 v0.9.4 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
-      语音/手势仅在你开启时加载本地模型；数据不离开本机。版本号：2026-11-08 · 手势骨架映射 v2。
+      视力筛查程序 v0.9.5 · 算法参考 WHOeyes（WHO / CERA「Vision at Home」）的 tumbling E + 阶梯法。
+      语音/手势仅在你开启时加载本地模型；数据不离开本机。版本号：2026-11-08 · 手势预览不裁切 v3。
     </div>
     <div class="row" style="margin-top:auto">
       <button class="btn ghost" data-go="home">返回</button>
@@ -1910,7 +1910,7 @@ window.addEventListener('unhandledrejection', (e) => {
 </script>
 <script type="module">
   // 带版本参数，避免手机/电脑浏览器缓存旧的手势绘制代码（骨架坐标修复）
-  import * as GestureEngine from './gesture/engine.js?v=20261108-gesture-map2';
+  import * as GestureEngine from './gesture/engine.js?v=20261108-gesture-fit3';
   window.GestureEngine = GestureEngine;
   window.dispatchEvent(new Event('vs-gesture-engine-ready'));
 </script>
