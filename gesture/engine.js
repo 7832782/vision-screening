@@ -51,13 +51,32 @@ function bestOf(hands, w, h) {
 const EDGES = [[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
   [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
 
-function draw(canvas, best, w, h) {
-  if (!canvas) return;
-  if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+function draw(canvas, best, video) {
+  if (!canvas || !video) return;
+  const rect = canvas.getBoundingClientRect();
+  const dw = rect.width || canvas.clientWidth;
+  const dh = rect.height || canvas.clientHeight;
+  if (!dw || !dh) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(dw * dpr);
+  canvas.height = Math.round(dh * dpr);
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, w, h);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, dw, dh);
   if (!best.landmarks) return;
-  const pts = best.landmarks.map((p) => [(1 - p.x) * w, p.y * h]); // 镜像绘制
+
+  // 视频 CSS 是 object-fit: cover，画面会按比例放大并裁切；骨架必须按
+  // 同样的缩放/裁切映射，否则会整体偏移。不能直接用 video.videoWidth 当画布宽。
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  if (!vw || !vh) return;
+  const scale = Math.max(dw / vw, dh / vh);
+  const rw = vw * scale;
+  const rh = vh * scale;
+  const ox = (dw - rw) / 2;
+  const oy = (dh - rh) / 2;
+  const pts = best.landmarks.map((p) => [ox + (1 - p.x) * rw, oy + p.y * rh]); // 镜像绘制
+
   ctx.strokeStyle = '#22d3ee';
   ctx.lineWidth = 3;
   for (const [a, b] of EDGES) {
@@ -72,7 +91,12 @@ function draw(canvas, best, w, h) {
 export async function start(video, canvas, onAnswer, onStatus) {
   await load(onStatus);
   const media = await navigator.mediaDevices.getUserMedia({
-    video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+    video: {
+      width: { ideal: 640 },
+      height: { ideal: 480 },
+      aspectRatio: { ideal: 4 / 3 },
+      facingMode: 'user',
+    },
     audio: false,
   });
   video.srcObject = media;
@@ -94,7 +118,7 @@ export async function start(video, canvas, onAnswer, onStatus) {
     try { result = landmarker.detectForVideo(video, now); } catch (e) { return; }
     const best = bestOf(result.landmarks || [], w, h);
     const ev = gate.update(best, now);
-    draw(canvas, best, w, h);
+    draw(canvas, best, video);
     if (onStatus) onStatus(best, ev);
     if (ev.answer && ev.gesture !== 'none' && ev.confidence >= 0.45) {
       onAnswer(ev.gesture, ev.confidence);
