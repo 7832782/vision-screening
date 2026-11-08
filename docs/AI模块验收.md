@@ -1,13 +1,14 @@
 # AI 模块验收记录（2026-11-08）
 
 > 本文记录「其他 AI 完成的语音/手势模块」的验收数字，以及整合进 `vision-screening` 的冒烟结果。
-> 原始实验目录：`F:\DeepSeek Harness\项目\单音识别方案`、`F:\DeepSeek Harness\项目\vision-screening\_gesture_lab`。
+> **原始实验目录已于 2026-11-08 删除**（合计 323 MB，决定不做这些方向）。三份原始报告留在
+> [`实验归档/`](实验归档/)，本文的数字全部出自那三份报告，可直接核对。
 
 ## 1. 语音
 
 ### 1.1 服务端双模型（Vosk + SenseVoice）
 
-- 实现：`单音识别方案/server/app.py` + `ensemble.py`
+- 实现：服务端 `server/app.py` + `ensemble.py`（原工程已删，报告见 [`实验归档/语音-REPORT.md`](实验归档/语音-REPORT.md)）
 - 模型：Vosk small-cn（65 MB，四字硬语法）+ SenseVoice int8（228 MB，拼音兜底）
 - 验收：
   - 真人 24 条：**24/24 = 100%**，来源 both 14 / vosk 6 / sensevoice 4
@@ -30,12 +31,12 @@
 
 ## 2. 手势
 
-- 实现：`_gesture_lab/pwa` + `hand_rules.js` / `gesture_gate.js` / `hand_landmarker.task`
+- 实现：原 PWA 实验台 + `hand_rules.js` / `gesture_gate.js` / `hand_landmarker.task`（实验台已删，报告见 [`实验归档/手势-REPORT.md`](实验归档/手势-REPORT.md)）
 - 验收：
   - PWA 示例图：**4/4**（GPU delegate，单张 19–246 ms）
   - 离线重载：4/4，0 外部请求（Service Worker 缓存 17 个资源）
   - 闸门单测：**7/7 PASS**（静止垂手不触发、每题只答一次、离开可重新武装等）
-    ⚠️ 这些测试文件**没有入库**（原实验目录 `_gesture_lab/` 被 `.gitignore` 排除），数字来自当时的运行记录，现在无法一键复跑。要复核只能重写单测。
+    ⚠️ 这些测试文件**没有入库**，而且原实验目录已于 2026-11-08 删除，现在无法一键复跑。数字来自当时报告里的运行记录（[`实验归档/手势-REPORT.md`](实验归档/手势-REPORT.md)），要复核只能重写单测。
   - 原报告数据集：排除 40 cm 纯手部特写后，检出后方向准确率 97%（29/29 次给出方向均正确）
   - 2 m 小目标：640×480 / 480×640 8/8；320×240 不够
 - 限制：40 cm 纯手特写检不到；静止垂手需要动作闸门；真实老人数据仍需试用。
@@ -66,6 +67,7 @@
 | **骨架映射 v2** | 视频用 `object-fit: cover` 会裁切，骨架却按未裁切的坐标画；另外视频元素被 grid 撑得比 canvas 高 112 px | `gesture/engine.js` `draw()`：按 `video.getBoundingClientRect()` 的**实际显示框**做缩放 + 裁切 + 镜像映射；视频元素改 `position:absolute; inset:0` |
 | **模块 URL 加 `?v=` 参数** | 改了 `engine.js` 但浏览器用旧缓存，用户以为没改 | `import … from './gesture/engine.js?v=20261108-gesture-map2'` |
 | **预览改 contain + 框跟随画面比例**（v0.9.5） | 手机竖屏的流是 480×640，4:3 预览框用 `cover` 会把上下各裁 105 px，举起的手被裁到框外，骨架点落到画布负坐标 → 用户看到「手在画面里、点不在手上」 | `gesture/engine.js` `draw()`（`min` 缩放）+ `start()`（设 `aspect-ratio`）；两条 video CSS 改 `contain` |
+| **只认 1 只手**（v0.9.6） | 老人单手作答；`numHands: 2 → 1`，省一半推理算力 | `gesture/engine.js` 的 `createFromOptions` |
 | **试音页显示版本号** | 只有一个可见构建号才能确认改动生效 | `#gestureBuild` / 设置页 `#appVersion` / 欢迎页 |
 
 > 骨架映射踩了三次：第一次只修 cover 映射（点还歪）；第二次发现视频元素比 canvas 高 112 px（修对了映射，

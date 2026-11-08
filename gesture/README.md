@@ -1,9 +1,10 @@
 # 离线手势作答模块（MediaPipe Hand Landmarker）
 
-本目录整合自 `_gesture_lab/pwa`：
+本目录整合自原 `_gesture_lab/pwa` 实验台（该目录已于 2026-11-08 删除，报告归档在
+[`../docs/实验归档/手势-REPORT.md`](../docs/实验归档/手势-REPORT.md)）：
 
 - `vendor/`：`@mediapipe/tasks-vision@0.10.21`（本地 WASM）
-- `models/hand_landmarker.task`：手部 21 点模型（Apache-2.0）
+- `models/hand_landmarker.task`：手部 21 点模型（Apache-2.0），**只识别 1 只手**（`numHands: 1`）
 - `hand_rules.js`：21 点 → 上/下/左/右 的规则判定
 - `gesture_gate.js`：动作激活 + 保持确认 + 每题一次
 - `engine.js`：给主页面用的摄像头封装（镜像、骨架绘制、VIDEO 模式）

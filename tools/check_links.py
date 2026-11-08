@@ -5,9 +5,10 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
 
+# 归档快照里的链接指向已删除的实验目录，跳过
 md_files = []
 for dirpath, dirnames, filenames in os.walk('.'):
-    if any(x in dirpath for x in ('.git', '_gesture_lab', 'node_modules')):
+    if any(x in dirpath for x in ('.git', '_gesture_lab', 'node_modules', '实验归档')):
         continue
     for f in filenames:
         if f.endswith('.md'):

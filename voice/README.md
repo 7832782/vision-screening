@@ -1,6 +1,7 @@
 # 离线语音作答模块（Vosk WASM）
 
-本目录是「单音识别方案」中 `demo-wasm` 的整合版资源：
+本目录是原「单音识别方案」中 `demo-wasm` 的整合版资源（原工程已于 2026-11-08 删除，报告归档在
+[`../docs/实验归档/语音-REPORT.md`](../docs/实验归档/语音-REPORT.md)）：
 
 - `vosk.js`：vosk-browser 运行时（含 WASM worker）
 - `model.tar.gz`：Vosk 中文小模型 `vosk-model-small-cn-0.22`
