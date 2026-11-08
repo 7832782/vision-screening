@@ -1032,14 +1032,16 @@ function eyesFor(type){
     : [{ key:'both',  label:'双眼', cover:'保持两眼睁开' }];
 }
 
-// 计算本机屏幕能可靠显示到哪一档（笔画至少 1 个设备像素，且误差 ≤10%）
+// 计算本机屏幕能“画出”的最高档（以笔画至少 1 个设备像素为准）。
+// 注意不要再按“整数像素吸附误差≤10%”来筛：那会让不同距离出现幸运/不幸的
+// 像素对齐，33cm 可能比 40cm 还高，完全不符合物理直觉。绘制时只有误差≤10%
+// 才吸附整数像素，否则按精确物理尺寸绘制，因此用笔画≥1px 作为单调的硬下限。
 function maxRenderableIndex(distM){
   const dpm = devPerMm();
   if (!dpm) return LEVELS.length - 1;
   for (let i = LEVELS.length - 1; i >= 0; i--) {
-    const dev = optotypeHeightMm(LEVELS[i], distM) * dpm;
-    const k = Math.round(dev / 5);
-    if (k >= 1 && Math.abs(5 * k - dev) / dev <= 0.10) return i;
+    const strokeDev = optotypeHeightMm(LEVELS[i], distM) * dpm / 5;
+    if (strokeDev >= 1.0) return i;
   }
   return 0;
 }
@@ -1067,9 +1069,18 @@ function drawOptotype(dir, levelIndex){
   const dpr = window.devicePixelRatio || 1;
 
   const devRaw = sizeMm * dpm;
-  const k = Math.max(1, Math.round(devRaw / 5));     // 笔画 = k 个设备像素
-  let size = (5 * k) / dpr;                          // CSS px
-  let stroke = size / 5;
+  const strokeDev = devRaw / 5;                      // 目标笔画宽度（设备像素）
+  const k = Math.max(1, Math.round(strokeDev));      // 吸附候选
+  let size, stroke, snapped;
+  if (Math.abs(5 * k - devRaw) / Math.max(devRaw, 1e-9) <= 0.10) {
+    size = (5 * k) / dpr;                            // 整数设备像素，边缘更锐利
+    stroke = size / 5;
+    snapped = true;
+  } else {
+    size = devRaw / dpr;                             // 精确物理尺寸，避免距离间“像素对齐”跳档
+    stroke = size / 5;
+    snapped = false;
+  }
   let gap = size / 2;                                // 拥挤框与视标的间距
 
   // 屏幕放不下时：先压拥挤框，再等比缩视标
@@ -1090,7 +1101,7 @@ function drawOptotype(dir, levelIndex){
       `<svg width="${size}" height="${size}" viewBox="0 0 5 5" style="transform:rotate(${rot}deg)">` +
         `<path d="${E_PATH}" fill="#000"/></svg></div>`;
 
-  session.lastRender = { size, stroke, gap, devRaw, k, logMAR };
+  session.lastRender = { size, stroke, gap, devRaw, k, snapped, logMAR };
   session.questionShownAt = performance.now();
   updateHud();
 }
