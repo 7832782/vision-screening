@@ -60,9 +60,9 @@ button{font-family:inherit}
 .card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:20px 22px;box-shadow:var(--shadow)}
 .muted{color:var(--muted)}
 .small{font-size:.86em}
-h1{font-size:clamp(28px,3.2vw+14px,44px);line-height:1.2;margin:.1em 0}
-h2{font-size:clamp(22px,1.8vw+14px,32px);margin:.1em 0}
-h3{font-size:clamp(19px,1.2vw+13px,26px);margin:.1em 0}
+h1{font-size:clamp(34px,3.2vw + 14px,46px);line-height:1.2;margin:.1em 0}
+h2{font-size:clamp(22px,1.8vw + 14px,32px);margin:.1em 0}
+h3{font-size:clamp(19px,1.2vw + 13px,26px);margin:.1em 0}
 p{margin:.5em 0}
 ul{padding-left:1.3em;margin:.5em 0}
 li{margin:.35em 0}
@@ -86,7 +86,7 @@ li{margin:.35em 0}
   display:grid;place-items:center;padding:0;
 }
 .gear:active{opacity:.75}
-.hero .lead{color:var(--ink);font-size:clamp(19px,1.9vw+12px,28px);line-height:1.5;margin:.5em 0 0}
+.hero .lead{color:var(--ink);font-size:clamp(19px,1.9vw + 12px,28px);line-height:1.5;margin:.5em 0 0}
 /* 首屏的两个入口：远 / 近。老人自己选，但每个按钮自己写清距离，不再多问一句 */
 .choices{display:flex;flex-direction:column;gap:14px}
 .choice{
@@ -103,8 +103,8 @@ li{margin:.35em 0}
   flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;
   text-align:center;gap:12px;padding:4vh 0;
 }
-.guide-title{font-size:clamp(28px,3vw+14px,46px);font-weight:800;line-height:1.35;color:var(--ink)}
-.guide-sub{font-size:clamp(18px,1.4vw+12px,27px);color:var(--muted);line-height:1.5}
+.guide-title{font-size:clamp(32px,3vw + 14px,52px);font-weight:800;line-height:1.35;color:var(--ink)}
+.guide-sub{font-size:clamp(18px,1.4vw + 12px,27px);color:var(--muted);line-height:1.5}
 .guide-sub[hidden]{display:none}
 
 /* ---------- 校准 ---------- */
@@ -192,7 +192,7 @@ li{margin:.35em 0}
 }
 .gap-wait{
   width:100%;height:100%;display:grid;place-items:center;color:var(--muted);
-  font-size:clamp(20px,2.2vw+12px,30px);font-weight:700;letter-spacing:.04em;
+  font-size:clamp(20px,2.2vw + 12px,30px);font-weight:700;letter-spacing:.04em;
 }
 .gap-wait span{opacity:.75}
 
@@ -204,7 +204,7 @@ li{margin:.35em 0}
 #overlay[hidden]{display:none}
 .ov-card{max-width:640px;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
 .ov-num{font-size:clamp(70px,14vw,128px);font-weight:800;color:var(--accent);line-height:1}
-.ov-title{font-size:clamp(22px,2.4vw+12px,34px);font-weight:800}
+.ov-title{font-size:clamp(22px,2.4vw + 12px,34px);font-weight:800}
 .ov-sub{color:var(--muted)}
 
 /* ---------- 结果（老人视角：数字 + 一句结论 + 按钮，术语收进折叠） ---------- */
@@ -290,7 +290,7 @@ li{margin:.35em 0}
   #answerbar{padding:14px 40px 22px}
   #answerbar button{min-height:92px}
   .ov-card{max-width:900px}
-  .ov-title{font-size:clamp(30px,2.6vw+12px,46px)}
+  .ov-title{font-size:clamp(30px,2.6vw + 12px,46px)}
   .ov-sub{font-size:1.25em}
   .ov-num{font-size:clamp(90px,10vw,150px)}
   .ov-card .btn.big{min-height:96px;font-size:1.4em}
