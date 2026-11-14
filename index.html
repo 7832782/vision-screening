@@ -97,6 +97,15 @@ li{margin:.35em 0}
 .choice:active{border-color:var(--accent)}
 .choice .t{font-size:1.35em;font-weight:800;color:var(--ink)}
 .choice .s{font-size:.9em;color:var(--muted)}
+/* 三步引导：一屏只说一件事。只在第一次点「看远处 / 看近处」时出现（vs.firstRun） */
+.guide-step{text-align:center;color:var(--muted);font-size:.95em;letter-spacing:.1em}
+.guide-body{
+  flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  text-align:center;gap:12px;padding:4vh 0;
+}
+.guide-title{font-size:clamp(28px,3vw+14px,46px);font-weight:800;line-height:1.35;color:var(--ink)}
+.guide-sub{font-size:clamp(18px,1.4vw+12px,27px);color:var(--muted);line-height:1.5}
+.guide-sub[hidden]{display:none}
 
 /* ---------- 校准 ---------- */
 /* ---------- 校准（竖放标尺） ---------- */
@@ -323,6 +332,20 @@ li{margin:.35em 0}
   </div>
 </section>
 
+<!-- ==================== 三步引导（首次进入 / 设置页回看） ==================== -->
+<section class="screen" data-screen="guide">
+  <div class="wrap">
+    <div class="guide-step" id="guideStep">1 / 3</div>
+    <div class="guide-body">
+      <div class="guide-title" id="guideTitle">把屏幕调到最亮</div>
+      <div class="guide-sub" id="guideSub">平时戴眼镜，就戴着测</div>
+    </div>
+    <div class="row" style="margin-top:auto">
+      <button class="btn big" data-action="guide-next" id="guideNext">下一步</button>
+    </div>
+  </div>
+</section>
+
 <!-- ==================== 屏幕校准（竖放标尺） ==================== -->
 <section class="screen" data-screen="calib">
   <div class="wrap">
@@ -445,6 +468,10 @@ li{margin:.35em 0}
     <h2 style="margin:0 0 4px">设置</h2>
     <div class="card">
       <div class="set-row">
+        <div><div style="font-weight:700">怎么测</div><div class="muted small">再看一遍三步引导</div></div>
+        <button class="btn secondary" data-action="guide-replay" style="flex:none;min-height:52px">看一遍</button>
+      </div>
+      <div class="set-row">
         <div><div style="font-weight:700">历史记录</div><div class="muted small" id="historyCount">—</div></div>
         <button class="btn secondary" data-go="history" style="flex:none;min-height:52px">查看</button>
       </div>
@@ -544,7 +571,7 @@ const PER_LEVEL = 5, PASS_NEED = 4;
 // 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
 const ANSWER_GAP_MS = 1000;
 // 构建号：改版本只改这一行（欢迎页 / 设置页 / 手势试音页 / 控制台都读它）
-const BUILD = 'v0.10.2 · 2026-11-14';
+const BUILD = 'v0.10.3 · 2026-11-14';
 // 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
 const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
 const DIRS = ['up','right','down','left'];
@@ -621,7 +648,7 @@ if ('speechSynthesis' in window) {
 /* =====================================================================
    4. 屏幕路由
    ===================================================================== */
-const TITLES = { welcome:'视力筛查', calib:'屏幕校准',
+const TITLES = { welcome:'视力筛查', guide:'怎么测', calib:'屏幕校准',
                  test:'正在测试', result:'测试结果', settings:'设置', history:'历史记录',
                  voiceTest:'语音试音', gestureTest:'手势试音' };
 function showScreen(name){
@@ -1235,10 +1262,15 @@ function describeResult(r){
 /* =====================================================================
    11. 开始 / 结束会话
    ===================================================================== */
-/* 老人端流程：首屏选「看远处 / 看近处」→ 没校准先量屏幕 → 3 秒倒计时 → 测试。
+/* 老人端流程：首屏选「看远处 / 看近处」→（第一次先走三步引导）→ 没校准先量屏幕 → 3 秒倒计时 → 测试。
    中间没有「选距离 / 读说明」的屏；距离写在按钮上，不同尺寸的屏幕各自固定。 */
 function startFlow(type){
   const t = type || 'distance';
+  // 第一次用先走三步引导；?sim= 跳过，方便自动测试
+  if (!store.get('vs.firstRun', false) && SIM == null) { openGuide(t, false); return; }
+  startAfterGuide(t);
+}
+function startAfterGuide(t){
   if (!calib && !SIM) { openCalib(t); return; }
   startSession(t);
 }
@@ -1324,6 +1356,50 @@ function finishSession(){
   renderResult(type, results);
   showScreen('result');
   speak('测试完成。' + (adviceFor(type, results).speech || ''));
+}
+
+/* =====================================================================
+   11.5 三步引导（v0.10.3）
+   WHOeyes 的教程是分步的：一屏一个动作。我们照它这一点，只在第一次出现，
+   之后可以从齿轮 →「怎么测」回看。
+   ===================================================================== */
+let guideType = 'distance';
+let guideIndex = 0;
+let guideReplay = false;
+
+function guideSteps(){
+  const far = guideType !== 'near';
+  const dist = far ? `${settings.distanceM || 2} 米` : `${settings.nearDistance} 厘米`;
+  return [
+    { t:'把屏幕调到最亮', s:'平时戴眼镜，就戴着测' },
+    { t: far ? `站到 ${dist}外，遮住左眼` : `把手机拿到 ${dist}处，两只眼都睁开`, s:'' },
+    { t:'看清 E 朝哪边，看不清也请猜一个', s:'说方向 · 用食指指 · 按下面的箭头' },
+  ];
+}
+function renderGuide(){
+  const steps = guideSteps(), st = steps[guideIndex];
+  $('#guideStep').textContent = `${guideIndex + 1} / ${steps.length}`;
+  $('#guideTitle').textContent = st.t;
+  const sub = $('#guideSub');
+  sub.textContent = st.s;
+  sub.hidden = !st.s;
+  $('#guideNext').textContent = guideIndex === steps.length - 1
+    ? (guideReplay ? '知道了' : '开始')
+    : '下一步';
+  speak(st.t + '。' + (st.s || ''));
+}
+function openGuide(type, replay){
+  guideType = type || 'distance';
+  guideReplay = !!replay;
+  guideIndex = 0;
+  renderGuide();
+  showScreen('guide');
+}
+function guideNextStep(){
+  if (guideIndex < guideSteps().length - 1) { guideIndex++; renderGuide(); return; }
+  if (guideReplay) { guideReplay = false; showScreen('settings'); return; }
+  store.set('vs.firstRun', true);
+  startAfterGuide(guideType);
 }
 
 /* =====================================================================
@@ -1529,6 +1605,8 @@ document.addEventListener('click', (e) => {
   if (t.dataset.action) {
     switch (t.dataset.action) {
       case 'calib-done': finishCalib(); break;
+      case 'guide-next': guideNextStep(); break;
+      case 'guide-replay': openGuide('distance', true); break;
       case 'calib-swap': swapCalibObj(); break;
       case 'voice-test-toggle': toggleVoiceTest(); break;
       case 'gesture-test-toggle': toggleGestureTest(); break;
