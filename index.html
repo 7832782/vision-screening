@@ -68,7 +68,7 @@ ul{padding-left:1.3em;margin:.5em 0}
 li{margin:.35em 0}
 
 /* ---------- 首页 ---------- */
-.hero{padding:6vh 0 2vh;text-align:center}
+.hero{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center}
 .hero .logo{
   width:min(120px,22vw);height:min(120px,22vw);margin:0 auto 12px;border-radius:32px;
   background:linear-gradient(160deg,#0d6b5c,#0a4d42);color:#fff;
@@ -77,54 +77,36 @@ li{margin:.35em 0}
 }
 .hero p{color:var(--muted)}
 
-.cards{display:grid;grid-template-columns:1fr;gap:14px}
-@media (orientation:landscape) and (min-width:820px){
-  /* 横屏（一体机）：两列、垂直居中、卡片加高且内容居中，避免大屏上一片空白 */
-  .cards{grid-template-columns:1fr 1fr;flex:1;align-content:center}
-  .cards .big-card{min-height:min(40vh,320px);justify-content:center}
-  .cards .big-card .meta{margin-top:14px}
+/* ---------- 首屏：老人端唯一入口 ---------- */
+/* 半透明齿轮是设置者入口；轻点即进（v0.10 决定），不做长按 */
+.gear{
+  position:absolute;top:calc(10px + env(safe-area-inset-top));right:12px;
+  width:56px;height:56px;border-radius:50%;border:none;background:transparent;
+  color:var(--muted);opacity:.3;font-size:26px;line-height:1;cursor:pointer;
+  display:grid;place-items:center;padding:0;
 }
-.big-card{
-  background:var(--card);border:2px solid var(--line);border-radius:26px;
-  padding:24px; cursor:pointer; text-align:left; box-shadow:var(--shadow);
-  display:flex;flex-direction:column;gap:6px; min-height:150px;
-}
-.big-card:active{border-color:var(--accent)}
-.big-card .ico{font-size:1.9em;line-height:1}
-.big-card .t{font-size:1.22em;font-weight:800}
-.big-card .s{color:var(--muted);font-size:.92em}
-.big-card .meta{margin-top:auto;color:var(--accent);font-weight:700;font-size:.9em}
+.gear:active{opacity:.75}
+.hero .lead{color:var(--ink);font-size:clamp(19px,1.9vw+12px,28px);line-height:1.5;margin:.5em 0 0}
 
 /* ---------- 校准 ---------- */
-.calib-stage{
-  position:relative;flex:none;height:170px;background:#111;border-radius:0;overflow:hidden;
-  touch-action:none;user-select:none;margin:0 -16px;
+/* ---------- 校准（竖放标尺） ---------- */
+/* 两条竖线卡住参照物的宽度：身份证 54mm / 1 元硬币 25mm。
+   竖放而不是横放，是因为 54mm 在 360px 宽的手机上要占 79% 宽度，手柄贴着边框；竖放只占屏高 44%。 */
+.calib-stage-v{
+  position:relative;flex:1 1 auto;min-height:240px;background:#111;border-radius:18px;
+  overflow:hidden;touch-action:none;user-select:none;
 }
-.calib-bar{position:absolute;top:62px;height:44px;background:#fff;border-radius:4px}
-.calib-handle{
-  position:absolute;top:6px;width:40px;height:40px;border-radius:12px;background:#ffd23f;
-  box-shadow:0 2px 10px rgba(0,0,0,.45);cursor:ew-resize;touch-action:none;
+.calib-gap{position:absolute;top:14px;bottom:14px;background:rgba(255,210,63,.16)}
+.calib-vline{
+  position:absolute;top:14px;bottom:14px;width:6px;margin-left:-3px;border-radius:3px;
+  background:#ffd23f;box-shadow:0 0 12px rgba(255,210,63,.6);
 }
-.calib-handle::after{
-  content:"";position:absolute;left:19px;top:40px;width:2px;height:100px;background:#ffd23f;
-  box-shadow:0 0 6px rgba(255,210,63,.8);
+.calib-stage-v .hint{
+  position:absolute;left:0;right:0;bottom:10px;text-align:center;color:#ffd23f;
+  font-size:.82em;letter-spacing:.02em;
 }
-.calib-picker{display:flex;flex-direction:column;gap:10px;padding:16px 18px}
-.calib-picker label{font-weight:700}
-.calib-select{
-  width:100%;min-height:58px;border:2px solid var(--line);border-radius:14px;
-  background:#fff;color:var(--ink);padding:0 12px;font-size:1em;font-family:inherit;
-}
-.calib-custom{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.calib-custom[hidden]{display:none}
-.calib-custom input{
-  flex:1 1 120px;min-height:56px;border:2px solid var(--line);border-radius:14px;
-  background:#fff;color:var(--ink);padding:0 12px;font-size:1em;
-}
-.calib-ctrl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
-.calib-ctrl .btn{min-height:76px;font-size:1.1em}
-.calib-num{display:grid;place-items:center;font-weight:800;font-size:1.05em;color:var(--muted)}
-input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:pointer}
+.calib-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.calib-ctrl .btn{min-height:84px;font-size:1.15em}
 .calib-warn{background:#fdf0e2;color:var(--warn);border-radius:12px;padding:10px 14px;font-size:.85em}
 
 /* ---------- 设置 ---------- */
@@ -143,16 +125,11 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 }
 .switch[aria-checked="true"]{background:var(--accent)}
 .switch[aria-checked="true"]::after{transform:translateX(34px)}
-.seg{display:flex;gap:8px}
-.seg button{min-height:52px;padding:0 18px;border-radius:14px;border:2px solid var(--line);background:#fff;font-size:.95em;font-weight:700;color:var(--ink);cursor:pointer}
-.seg button[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
 @media (max-width: 480px){
   .set-row.wrap-mobile{flex-wrap:wrap}
   .set-row.wrap-mobile > div:first-child{flex:1 1 100%}
   .set-row.wrap-mobile > .row{width:100%;justify-content:flex-start}
   .set-row.wrap-mobile > .row .btn{flex:1 1 0;min-width:0}
-  .set-row.wrap-mobile .seg{width:100%}
-  .set-row.wrap-mobile .seg button{flex:1;padding:0 10px;font-size:.9em}
 }
 @media (min-width: 481px){
   .set-row.wrap-mobile > .row{flex-wrap:nowrap}
@@ -207,24 +184,20 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 .ov-title{font-size:clamp(22px,2.4vw+12px,34px);font-weight:800}
 .ov-sub{color:var(--muted)}
 
-/* ---------- 结果 ---------- */
-.res-grid{display:grid;grid-template-columns:1fr;gap:14px}
-@media (orientation:landscape) and (min-width:760px){.res-grid{grid-template-columns:1fr 1fr}}
-.res-card{background:#fff;border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
-.res-eye{font-weight:800;color:var(--muted);font-size:.95em}
-.res-big{font-size:clamp(44px,7vw,76px);font-weight:800;line-height:1.05;margin:.1em 0}
-.res-sub{color:var(--muted);font-size:.9em}
-.pill{display:inline-block;margin-top:10px;padding:.28em .8em;border-radius:999px;font-size:.86em;font-weight:800}
-.pill.good{background:#e6f2ee;color:var(--good)}
-.pill.watch{background:#fdf0e2;color:var(--warn)}
-.pill.refer{background:#fbe9e7;color:var(--bad)}
-.pill.limit{background:#e8edf5;color:#3c5a7a}
+/* ---------- 结果（老人视角：数字 + 一句结论 + 按钮，术语收进折叠） ---------- */
+.res-main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.res-line{
+  text-align:center;font-size:clamp(28px,4.2vw,52px);font-weight:800;
+  line-height:1.25;margin:.3em 0 0;
+}
+.res-scale{text-align:center;color:var(--muted);font-size:.86em;margin:.2em 0 0}
 .advice{border-left:6px solid var(--accent);background:#fff;border-radius:16px;padding:18px 20px}
 .advice.watch{border-color:var(--warn)}
 .advice.refer{border-color:var(--bad)}
 .advice.limit{border-color:#3c5a7a}
-.res-note{color:var(--muted);font-size:.82em;margin-top:8px;line-height:1.45}
-.disclaimer{font-size:.8em;color:var(--muted);background:#efece2;border-radius:14px;padding:14px 16px}
+.disclaimer{font-size:.82em;color:var(--muted);background:#efece2;border-radius:14px;padding:12px 16px;margin:0}
+.more-data summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.more-data p{margin:.4em 0}
 
 /* ---------- 语音 / 手势作答 ---------- */
 .verify-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -281,6 +254,10 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 
 /* 横屏（一体机）微调 */
 @media (orientation:landscape) and (min-height:600px){
+  /* 一体机是 2 米外看的，首屏和主按钮都要比手机大一档 */
+  .hero h1{font-size:clamp(44px,3.6vw,68px)}
+  .hero .lead{font-size:clamp(24px,1.7vw,34px)}
+  .btn.big{min-height:150px;font-size:1.9em}
   #hud{height:64px}
   #stage{inset:64px 24px 132px}
   #answerbar{padding:14px 40px 22px}
@@ -299,100 +276,48 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 </head>
 <body>
 
-<!-- ==================== 欢迎 ==================== -->
+<!-- ==================== 首屏：老人端唯一入口 ==================== -->
 <section class="screen" data-screen="welcome">
+  <button class="gear" data-go="settings" aria-label="设置">
+    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3.2"></circle>
+      <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"></path>
+    </svg>
+  </button>
   <div class="wrap">
     <div class="hero">
       <div class="logo">E</div>
       <h1>视力筛查</h1>
-      <p class="small">用手机或一体机，几分钟测一测远、近视力</p>
-      <p class="muted small" data-build style="margin-top:10px"></p>
-    </div>
-    <div class="card small">
-      <p><strong>怎么用：</strong>坐好，屏幕亮度调到最大。看屏幕上的「E」，用<strong>手指滑动</strong>或<strong>按方向键</strong>回答它的开口朝哪边。看不清就猜一个。</p>
-      <p class="muted">本程序用于<strong>初步筛查</strong>，不是医疗诊断。看不清或结果异常，请到医院眼科检查。</p>
+      <p class="lead">坐好，看屏幕上的 E<br>看不清也请猜一个</p>
     </div>
     <div class="row" style="margin-top:auto">
       <button class="btn big" data-action="welcome-start">开始</button>
     </div>
+    <p class="muted small" style="text-align:center;margin:0" data-build></p>
   </div>
 </section>
 
-<!-- ==================== 首页 ==================== -->
-<section class="screen" data-screen="home">
-  <div class="wrap">
-    <div class="row" style="align-items:center;justify-content:space-between">
-      <h2 style="margin:0">选择检查项目</h2>
-      <button class="btn ghost" data-go="settings" style="flex:none;min-height:52px">设置</button>
-    </div>
-    <div class="cards">
-      <button class="big-card" data-start="distance">
-        <div class="ico">🖥️</div>
-        <div class="t">远距离视力</div>
-        <div class="s">2 米距离 · 开启语音/手势后可一个人完成</div>
-        <div class="meta">约 5 分钟 · 先测右眼再测左眼</div>
-      </button>
-      <button class="big-card" data-start="near">
-        <div class="ico">📖</div>
-        <div class="t">近距离视力</div>
-        <div class="s">40 厘米距离 · 自己一个人就能测</div>
-        <div class="meta">约 4 分钟 · 双眼一起测</div>
-      </button>
-    </div>
-    <div class="row" style="margin-top:auto">
-      <button class="btn secondary" data-go="history">查看历史记录</button>
-      <button class="btn ghost" data-go="welcome">返回首页</button>
-    </div>
-  </div>
-</section>
-
-<!-- ==================== 屏幕校准 ==================== -->
+<!-- ==================== 屏幕校准（竖放标尺） ==================== -->
 <section class="screen" data-screen="calib">
   <div class="wrap">
-    <h2>第一步：校准屏幕</h2>
-    <div class="card small">
-      <p>手机、一体机的屏幕大小各不相同，先把「E」画成正确的大小。</p>
-      <p><strong>选一件身边有的标准物品</strong>，放到屏幕上的两条黄色标线之间，拖动黄色方块（或下面的大按钮），让两条标线<strong>正好卡住物品的两端</strong>。</p>
+    <h2>先量一下屏幕</h2>
+    <p class="lead" id="calibLead">把身份证竖着放进两条黄线之间，让它正好卡住</p>
+    <div class="calib-stage-v" id="calibStage">
+      <div class="calib-gap" id="calibGap"></div>
+      <div class="calib-vline" id="calibLineL"></div>
+      <div class="calib-vline" id="calibLineR"></div>
     </div>
-    <div class="card calib-picker">
-      <label for="calibObjSelect">选择参照物</label>
-      <select id="calibObjSelect" class="calib-select"></select>
-      <div class="calib-custom" id="calibCustomWrap" hidden>
-        <span>已知长度</span>
-        <input id="calibCustomMm" type="number" inputmode="decimal" min="5" max="1000" step="0.1" value="150">
-        <span>毫米 mm</span>
-      </div>
-      <div class="muted small" id="calibObjNote">选一件身边有的标准物品，把标尺卡到它的两端。</div>
-    </div>
-    <div class="calib-stage" id="calibStage">
-      <div class="calib-bar" id="calibBar"></div>
-      <div class="calib-handle" id="hLeft" style="left:20px"></div>
-      <div class="calib-handle" id="hRight" style="left:280px"></div>
-    </div>
-    <input type="range" id="calibRange" min="80" max="900" step="1" value="300" aria-label="调整标尺长度">
     <div class="calib-warn" id="calibWarn" hidden></div>
     <div class="calib-ctrl">
-      <button class="btn secondary" data-calib="-1">− 缩短</button>
-      <div class="calib-num" id="calibReadout">—</div>
-      <button class="btn secondary" data-calib="1">加长 +</button>
+      <button class="btn secondary" data-calib="-1">窄一点</button>
+      <button class="btn secondary" data-calib="1">宽一点</button>
     </div>
     <div class="row">
-      <button class="btn" data-action="calib-done">卡好了，完成校准</button>
+      <button class="btn big" data-action="calib-done">卡好了</button>
     </div>
     <div class="row" style="margin-top:auto">
-      <button class="btn ghost" data-go="home">稍后再说</button>
-    </div>
-  </div>
-</section>
-
-<!-- ==================== 测试说明 ==================== -->
-<section class="screen" data-screen="setup">
-  <div class="wrap">
-    <h2 id="setupTitle">准备开始</h2>
-    <div class="card" id="setupBody"></div>
-    <div class="row" style="margin-top:auto">
-      <button class="btn big" data-action="setup-start">开始测试</button>
-      <button class="btn ghost" data-go="home">返回</button>
+      <button class="btn ghost" data-action="calib-swap" id="calibSwap">没有身份证？换硬币</button>
     </div>
   </div>
 </section>
@@ -472,27 +397,19 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
 <!-- ==================== 结果 ==================== -->
 <section class="screen" data-screen="result">
   <div class="wrap">
-    <h2 id="resultTitle">测试结果</h2>
-    <div class="res-grid" id="resultGrid"></div>
-    <div class="advice" id="resultAdvice"></div>
-    <details class="card small" id="resultHelp">
-      <summary style="font-weight:700;cursor:pointer">结果怎么看？（点开）</summary>
-      <div style="margin-top:10px">
-        <p><strong>小数视力</strong>：国际常用的 0.1–1.0 记法，<strong>越大越好</strong>。正常成年人一般 ≥1.0；老年人随年龄会下降，但 0.25 已偏低。</p>
-        <p><strong>logMAR</strong>：0 最好，<strong>越大越差</strong>；每 0.1 大约相当于视力表差一行。0 = 1.0，0.3 = 0.5，0.6 = 0.25，1.0 = 0.1。</p>
-        <p><strong>6/24</strong>：Snellen 分数，正常是 6/6；6/24 表示在 6 米处只能看清正常眼在 24 米处能看清的视标。</p>
-        <p><strong>分级参考</strong>：小数视力 ≥0.63（logMAR ≤0.2）为正常范围；0.4–0.5（logMAR 0.3–0.4）为略低；≤0.32（logMAR ≥0.5）为明显下降。分级用于提示是否该去眼科检查，<strong>不是医学诊断</strong>。</p>
-        <p><strong>看到「≥0.20 · 受屏幕限制」？</strong>这不是说你的视力只有 0.20，而是这块屏幕在当前距离最高只能显示到 0.20；你全答对也只能到这里，实际视力可能更好。近距请换手机/平板或 4K 屏。</p>
-        <p class="muted">同一只眼在不同光线、距离、疲劳状态下会有一两行差异；如果结果异常，请到医院眼科复查。</p>
-      </div>
-    </details>
-    <div class="disclaimer">
-      本结果为<strong>初步筛查</strong>，不等于医学诊断。视力受光线、距离、疲劳、眼镜等因素影响。
-      如果结果异常，或平时就有看不清、视物变形、眼前黑影等情况，请尽快到<strong>医院眼科</strong>检查。
+    <div class="res-main">
+      <div class="res-line" id="resultLine"></div>
+      <div class="res-scale">1.0 最好</div>
+      <div class="advice" id="resultAdvice"></div>
+      <details class="card small more-data" id="resultMore">
+        <summary>更多数据</summary>
+        <div id="resultMoreBody"></div>
+      </details>
+      <p class="disclaimer">这是初步筛查，不是诊断。</p>
     </div>
     <div class="row" style="margin-top:auto">
       <button class="btn secondary" data-action="result-again">再测一次</button>
-      <button class="btn ghost" data-go="home">回到首页</button>
+      <button class="btn" data-go="welcome">完成</button>
     </div>
   </div>
 </section>
@@ -502,6 +419,14 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
   <div class="wrap">
     <h2 style="margin:0 0 4px">设置</h2>
     <div class="card">
+      <div class="set-row">
+        <div><div style="font-weight:700">近距离视力（40 厘米）</div><div class="muted small">拿在手上看，双眼一起测</div></div>
+        <button class="btn secondary" data-start="near" style="flex:none;min-height:52px">开始</button>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">历史记录</div><div class="muted small" id="historyCount">—</div></div>
+        <button class="btn secondary" data-go="history" style="flex:none;min-height:52px">查看</button>
+      </div>
       <div class="set-row">
         <div><div style="font-weight:700">语音提示</div><div class="muted small">用语音念出每一步的操作</div></div>
         <button class="switch" id="swVoice" role="switch" aria-checked="true"></button>
@@ -544,7 +469,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
       </div>
     </div>
     <div class="row" style="margin-top:auto">
-      <button class="btn ghost" data-go="home">返回</button>
+      <button class="btn ghost" data-go="welcome">返回</button>
     </div>
   </div>
 </section>
@@ -555,7 +480,7 @@ input[type="range"]{width:100%;height:56px;accent-color:var(--accent);cursor:poi
     <h2>历史记录</h2>
     <div class="card" id="historyList"></div>
     <div class="row" style="margin-top:auto">
-      <button class="btn ghost" data-go="home">返回</button>
+      <button class="btn ghost" data-go="welcome">返回</button>
     </div>
   </div>
 </section>
@@ -577,7 +502,7 @@ const PER_LEVEL = 5, PASS_NEED = 4;
 // 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
 const ANSWER_GAP_MS = 1000;
 // 构建号：改版本只改这一行（欢迎页 / 设置页 / 手势试音页 / 控制台都读它）
-const BUILD = 'v0.9.8 · 2026-11-08';
+const BUILD = 'v0.10.0 · 2026-11-14';
 // 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
 const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
 const DIRS = ['up','right','down','left'];
@@ -604,7 +529,7 @@ const store = {
 };
 
 const DEFAULT_SETTINGS = { voice: true, beep: true, nearDistance: 40, distanceM: 2,
-                           voiceAnswer: false, gestureAnswer: false };
+                           voiceAnswer: true, gestureAnswer: true };
 let settings = Object.assign({}, DEFAULT_SETTINGS, store.get('vs.settings', {}));
 
 // 校准值：每 1 个 CSS 像素对应多少毫米
@@ -654,7 +579,7 @@ if ('speechSynthesis' in window) {
 /* =====================================================================
    4. 屏幕路由
    ===================================================================== */
-const TITLES = { welcome:'视力筛查', home:'视力筛查', calib:'屏幕校准', setup:'准备开始',
+const TITLES = { welcome:'视力筛查', calib:'屏幕校准',
                  test:'正在测试', result:'测试结果', settings:'设置', history:'历史记录',
                  voiceTest:'语音试音', gestureTest:'手势试音' };
 function showScreen(name){
@@ -801,6 +726,14 @@ async function startGestureTestAnswer() {
     }, (best, ev) => {
       if (DEBUG) window.__gestureTestDebug = { best, ev, at: Date.now() };
     });
+    // 摄像头被拒时有的机型不抛错，只留一个黑框：确认真的出画面，否则收起小窗
+    const v = $('#pipVideo');
+    setTimeout(() => {
+      if (!session || !v || v.videoWidth) return;
+      pip.hidden = true;
+      stopGestureAnswer();
+      toast('摄像头没打开，请说话，或者让家人按方向键', 5000);
+    }, 2500);
   } catch (e) {
     pip.hidden = true;
     toast('手势作答打不开：' + (e.message || e));
@@ -859,125 +792,98 @@ const CN_DIR = { up:'上', down:'下', left:'左', right:'右' };
    思路：物品真实长度已知 → 把屏幕上的标尺调到和它一样长
         → 每个 CSS 像素对应多少毫米就定下来了
    ===================================================================== */
-const CALIB_GROUPS = [
-  { label: '卡片', items: [
-    { id:'card_s', label:'身份证 / 银行卡 短边（54 mm）', mm:54.0, note:'手机推荐' },
-    { id:'card_l', label:'身份证 / 银行卡 长边（85.6 mm）', mm:85.6, note:'平板 / 一体机' },
-  ]},
-  { label: '纸张', items: [
-    { id:'a6s', label:'A6 纸短边（105 mm）', mm:105, note:'小屏幕' },
-    { id:'a5s', label:'A5 纸短边（148 mm）', mm:148, note:'中等屏幕' },
-    { id:'a4s', label:'A4 纸短边（210 mm）', mm:210, note:'一体机推荐' },
-  ]},
-  { label: '其他', items: [
-    { id:'coin', label:'1 元硬币（直径 25 mm）', mm:25.0, note:'小屏幕' },
-    { id:'custom', label:'自定义长度…', mm:null, note:'输入毫米数，例如 30 cm = 300' },
-  ]},
+const CALIB_OBJECTS = [
+  { id:'card_s', mm:54.0,
+    lead:'把身份证竖着放进两条黄线之间，让它正好卡住' },
+  { id:'coin', mm:25.0,
+    lead:'把硬币放进两条黄线之间，让它正好卡住（2019 年后的新版硬币更小，不要用）' },
 ];
-const CALIB_OBJECTS = CALIB_GROUPS.flatMap(g => g.items);
 let calibObj = store.get('vs.calibObj', 'card_s');
-let customLenMm = Number(store.get('vs.customLenMm', 150)) || 150;
+if (!CALIB_OBJECTS.some(o => o.id === calibObj)) calibObj = 'card_s';
 let calibLenPx = 300;
-// 未校准时的起步猜测：0.19 mm/CSS px ≈ 134 ppi，用户拖一下就能对准
+// 未校准时的起步猜测：0.19 mm/CSS px ≈ 134 ppi，通常一两次调整就能对准
 const DEFAULT_MM_PER_CSS = 0.19;
-let calibDragging = false;
+let calibHoldTimer = null;
+let calibPendingStart = false;      // 从「开始」进来的校准，做完要继续往下测
 
 function objOf(id){ return CALIB_OBJECTS.find(o => o.id === id) || CALIB_OBJECTS[0]; }
-function calibObjMm(){
-  const o = objOf(calibObj);
-  if (o.id === 'custom') return clamp(Number(customLenMm) || 150, 5, 1000);
-  return o.mm;
-}
+function calibObjMm(){ return objOf(calibObj).mm; }
 function calibStageEl(){ return $('#calibStage'); }
 function calibMaxLen(){
   const st = calibStageEl();
-  return Math.max(140, (st ? st.clientWidth : 320) - 36);
-}
-function renderCalibPicker(){
-  const sel = $('#calibObjSelect');
-  if (!sel) return;
-  sel.innerHTML = CALIB_GROUPS.map(g =>
-    `<optgroup label="${g.label}">${g.items.map(o =>
-      `<option value="${o.id}">${o.label}</option>`).join('')}</optgroup>`).join('');
-  sel.value = calibObj;
-  const customWrap = $('#calibCustomWrap');
-  if (customWrap) customWrap.hidden = calibObj !== 'custom';
-  const customInput = $('#calibCustomMm');
-  if (customInput) customInput.value = String(customLenMm);
-  const note = $('#calibObjNote');
-  if (note) note.textContent = objOf(calibObj).note;
+  return Math.max(140, (st ? st.clientWidth : 320) - 32);
 }
 
-function selectCalibObj(id){
-  calibObj = id;
+function renderCalibHead(){
+  const lead = $('#calibLead');
+  if (lead) lead.textContent = objOf(calibObj).lead;
+  const swap = $('#calibSwap');
+  if (swap) swap.textContent = calibObj === 'coin' ? '还是用身份证' : '没有身份证？换硬币';
+}
+
+function swapCalibObj(){
+  calibObj = calibObj === 'coin' ? 'card_s' : 'coin';
   store.set('vs.calibObj', calibObj);
-  renderCalibPicker();
-  const base = calib ? calib.mmPerCssPx : DEFAULT_MM_PER_CSS;
-  calibLenPx = clamp(calibObjMm() / base, 80, calibMaxLen());
+  renderCalibHead();
+  calibLenPx = calibObjMm() / (calib ? calib.mmPerCssPx : DEFAULT_MM_PER_CSS);
   paintCalib();
+  beep(660, .05);
 }
 
-function updateCustomLen(value){
-  const n = Number(value);
-  if (!(n > 0)) return;
-  customLenMm = clamp(n, 5, 1000);
-  store.set('vs.customLenMm', customLenMm);
-  const base = calib ? calib.mmPerCssPx : DEFAULT_MM_PER_CSS;
-  calibLenPx = clamp(calibObjMm() / base, 80, calibMaxLen());
+/* 加减按钮：按住连续变化，单点走一小步。
+   老人从「猜的 0.19」调到真值最坏差 30%，1.5%/次时点 20 下太累，按住 1 秒就能到位。 */
+function nudgeCalib(dir){
+  const step = Math.max(1.5, calibLenPx * 0.015);
+  calibLenPx = clamp(calibLenPx + step * dir, 40, calibMaxLen());
   paintCalib();
+}
+function calibHoldStart(dir){
+  stopCalibHold();
+  nudgeCalib(dir);
+  beep(dir > 0 ? 700 : 560, .03);
+  calibHoldTimer = setInterval(() => nudgeCalib(dir), 60);
+}
+function stopCalibHold(){
+  if (calibHoldTimer) { clearInterval(calibHoldTimer); calibHoldTimer = null; }
 }
 
 function paintCalib(){
-  const st = calibStageEl(), bar = $('#calibBar');
-  if (!st || !bar) return;
+  const st = calibStageEl();
+  if (!st) return;
   const maxLen = calibMaxLen();
-  calibLenPx = clamp(calibLenPx, 80, maxLen);
-  const w = st.clientWidth;
-  const left = (w - calibLenPx) / 2;
-  bar.style.left = left + 'px';
-  bar.style.width = calibLenPx + 'px';
-  $('#hLeft').style.left  = (left - 20) + 'px';
-  $('#hRight').style.left = (left + calibLenPx - 20) + 'px';
-
-  const range = $('#calibRange');
-  if (range) { range.max = String(Math.round(maxLen)); range.value = String(Math.round(calibLenPx)); }
-
-  const mmPerCssPx = calibObjMm() / calibLenPx;
-  const dpr = window.devicePixelRatio || 1;
-  const ppi = Math.round(25.4 / mmPerCssPx * dpr);
-  const readout = $('#calibReadout');
-  if (readout) readout.innerHTML = `${ppi}<span class="small"> PPI</span>`;
+  calibLenPx = clamp(calibLenPx, 40, maxLen);
+  const left = (st.clientWidth - calibLenPx) / 2;
+  const l = $('#calibLineL'), r = $('#calibLineR'), gap = $('#calibGap');
+  if (l) l.style.left = left + 'px';
+  if (r) r.style.left = (left + calibLenPx) + 'px';
+  if (gap) { gap.style.left = left + 'px'; gap.style.width = calibLenPx + 'px'; }
 
   const warn = $('#calibWarn');
   if (warn) {
-    if (calibLenPx >= maxLen - 2) {
-      warn.hidden = false;
-      warn.textContent = '标尺已经到屏幕边缘了。如果物品仍然比标尺长，说明它比屏幕还宽——请换一件更短的物品（纸的短边、硬币、或身份证）。';
-    } else {
-      warn.hidden = true;
-    }
+    const atEdge = calibLenPx >= maxLen - 1;
+    warn.hidden = !atEdge;
+    if (atEdge) warn.textContent = '两条线已经到屏幕边缘了。如果物品还是比线宽，换硬币再量一次。';
   }
 }
 
-function openCalib(){
-  calibObj = store.get('vs.calibObj', calibObj || 'card_s');
-  renderCalibPicker();
-  if (calib) calibLenPx = calibObjMm() / calib.mmPerCssPx;
-  else       calibLenPx = calibObjMm() / DEFAULT_MM_PER_CSS;
+function openCalib(continueAfter){
+  calibPendingStart = !!continueAfter;
+  renderCalibHead();
+  calibLenPx = calibObjMm() / (calib ? calib.mmPerCssPx : DEFAULT_MM_PER_CSS);
   showScreen('calib');
   requestAnimationFrame(paintCalib);
 }
 
 function finishCalib(){
+  stopCalibHold();
   const mmPerCssPx = calibObjMm() / calibLenPx;
-  calib = { mmPerCssPx, method: calibObj === 'custom' ? 'custom' : 'object', object: calibObj, at: Date.now() };
+  calib = { mmPerCssPx, method:'object', object: calibObj, at: Date.now() };
   store.set('vs.calib', calib);
   store.set('vs.calibObj', calibObj);
-  store.set('vs.customLenMm', customLenMm);
   beep(660, .08);
-  speak('校准完成');
-  if (pendingStart) { showScreen('setup'); renderSetup(pendingStart); }
-  else showScreen('home');
+  speak('好了');
+  if (calibPendingStart) { calibPendingStart = false; startFlow('distance'); }
+  else showScreen('settings');
 }
 
 /* =====================================================================
@@ -1021,14 +927,11 @@ function maxRenderableIndex(distM){
 function updateHud(){
   if (!session) return;
   const eye = session.eyes[session.eyeIdx];
-  const parts = [];
-  parts.push(`<strong>${eye.label}</strong> · ${eye.cover}`);
-  $('#hudLeft').innerHTML = parts.join('');
-  let right = `第 ${session.group || 1} 组`;
-  if (DEBUG && session.lastRender) {
-    right += ` · 视标 ${session.lastRender.size.toFixed(1)}px`;
-  }
-  $('#hudRight').textContent = right;
+  $('#hudLeft').innerHTML = `<strong>${eye.label}</strong> · ${eye.cover}`;
+  // 「第 N 组」是元信息，老人用不上，v0.10 删掉；调试时只在 ?debug=1 下显示
+  $('#hudRight').textContent = (DEBUG && session.lastRender)
+    ? `第 ${session.group || 1} 组 · ${session.lastRender.size.toFixed(1)}px`
+    : '';
 }
 
 /* 画一个视标 */
@@ -1289,88 +1192,16 @@ function describeResult(r){
 /* =====================================================================
    11. 开始 / 结束会话
    ===================================================================== */
-function renderSetup(type){
-  const isFar = type === 'distance';
-  const distM = isFar ? (settings.distanceM || 2) : settings.nearDistance / 100;
-  const cap = maxRenderableIndex(distM);
-  const capWarn = LEVELS[cap] > 0.3
-    ? `<div class="calib-warn"><strong>这台屏幕在当前距离最多只能测到小数视力 ${DECIMAL[cap]}</strong>（受屏幕像素密度限制）。即使你全部答对，结果也只会显示「≥${DECIMAL[cap]} · 受屏幕限制」，不代表真实视力。建议换更高分辨率的手机/平板或 4K 屏；远距 2 米一般不受影响。</div>`
-    : '';
-  const dpm = devPerMm();
-  const dpr = window.devicePixelRatio || 1;
-  const stageApprox = Math.min(window.innerWidth - 20, window.innerHeight - 168);
-  const largestCss = dpm ? optotypeHeightMm(1.0, distM) * dpm / dpr : 0;
-  const fitWarn = isFar && largestCss > stageApprox * 0.9
-    ? `<div class="calib-warn">当前距离下最大的 E（约 ${Math.round(largestCss)}px）已经接近/超过手机屏幕可用区域，黑框会被压缩或隐藏。建议把距离缩短到 3 米以内，或换更大的屏幕。</div>`
-    : '';
-  $('#setupTitle').textContent = isFar
-    ? `远距离视力测试（${settings.distanceM || 2} 米）`
-    : `近距离视力测试（${settings.nearDistance} 厘米）`;
-  $('#setupBody').innerHTML = isFar ? `
-    <h3>一个人也能做</h3>
-    <ul>
-      <li>你坐在离屏幕 <strong>${settings.distanceM || 2} 米</strong> 的地方，正对屏幕、眼睛和屏幕差不多高</li>
-      <li>把设备放在<strong>桌面或支架</strong>上，正对你即可；开启语音/手势后<strong>不用请助手拿设备</strong></li>
-      <li>把屏幕<strong>亮度调到最大</strong>；平时戴眼镜就<strong>戴着测</strong></li>
-      <li>先<strong>遮住左眼</strong>测右眼，做完再遮右眼测左眼</li>
-      <li>看清 E 的开口方向后，直接<strong>说方向</strong>或用<strong>食指指向</strong>对应方向；也可以用按键/滑动</li>
-      <li>看不清就<strong>猜一个</strong>，不要眯眼</li>
-    </ul>
-    <h3>测试距离</h3>
-    <div class="seg" id="segDist">
-      <button data-dist="2"   aria-pressed="${(settings.distanceM || 2) === 2}">2 米（标准）</button>
-      <button data-dist="1.5" aria-pressed="${(settings.distanceM || 2) === 1.5}">1.5 米</button>
-      <button data-dist="1"   aria-pressed="${(settings.distanceM || 2) === 1}">1 米</button>
-    </div>
-    <div class="row" style="align-items:center;margin-top:10px">
-      <input id="customDist" inputmode="decimal" placeholder="任意距离（1–5 米），如 2.5"
-             style="flex:1;min-height:58px;font-size:1em;padding:0 14px;border-radius:14px;border:2px solid var(--line);background:#fff">
-      <button class="btn secondary" data-action="set-dist" style="flex:none;min-height:58px">应用</button>
-    </div>
-    <p class="muted small" id="distTip">${distTip(settings.distanceM || 2)}</p>
-    ${capWarn}
-    ${fitWarn}
-    <p class="muted small">如果使用按键/滑动，建议把设备放在支架上，或请家人在旁边帮忙；开启语音/手势后一个人就能完成。</p>
-  ` : `
-    <h3>一个人就能做</h3>
-    <ul>
-      <li>坐在舒服的位置，屏幕离眼睛 <strong>${settings.nearDistance} 厘米</strong>（大约一臂再加一点）</li>
-      <li>把屏幕<strong>亮度调到最大</strong>；平时戴眼镜、老花镜就<strong>戴着测</strong></li>
-      <li><strong>两只眼睛都睁开</strong>，不要遮</li>
-      <li>看清 E 的开口方向后，<strong>向那个方向滑动屏幕</strong>，或点下面四个方向键</li>
-      <li>看不清就<strong>猜一个</strong>，不要眯眼</li>
-    </ul>
-    <h3>测试距离</h3>
-    <div class="seg" id="segNearDist" aria-label="近距测试距离">
-      <button data-near="33" aria-pressed="${settings.nearDistance === 33}">33 cm</button>
-      <button data-near="40" aria-pressed="${settings.nearDistance === 40}">40 cm（标准）</button>
-      <button data-near="45" aria-pressed="${settings.nearDistance === 45}">45 cm</button>
-    </div>
-    <p class="muted small">默认 40 厘米；选好后点击下面的「开始测试」。</p>
-    <p class="muted small">测的过程中尽量保持头不动、距离不变。</p>
-    ${capWarn}
-    <p class="muted small">作答方式：<strong>向 E 开口的方向滑动屏幕</strong>，或点击下方四个方向键。</p>
-  `;
+/* 老人端流程：一个按钮进来 → 没校准先量屏幕 → 3 秒倒计时 → 测试。
+   没有「选项目 / 选距离 / 读说明」的中间屏；近距只从设置页进。 */
+function startFlow(type){
+  if (!calib && !SIM) { openCalib(true); return; }
+  startSession(type || 'distance');
 }
 
-/* 不同距离的取舍说明（依据：视角 = 视标高度 / 距离，线性成立；
-   但要考虑老年人调节力与屏幕分辨率下限） */
-function distTip(m){
-  if (m >= 2.4) return `${m} 米也可以：视标会按距离等比放大，测量原理不变，但需要更大的房间和更亮的照明。一般仍推荐 2 米。`;
-  if (m >= 1.9) return '2 米是国际通用的标准距离，老年人不需要动用调节力，结果最可靠。推荐用卷尺或在地上贴一条 2 米标记。';
-  if (m >= 1.4) return `${m} 米在空间紧张时可用，视标会按比例缩小。此时眼睛约需 ${(1 / m).toFixed(2)} D 调节，部分老年人可能略微低估视力。`;
-  return `${m} 米最容易量（约成人一臂半），但调节需求约 ${(1 / m).toFixed(1)} D，老年人可能明显低估视力，只建议空间实在不够时用。`;
-}
-
-function beginFlow(type){
+async function startSession(type){
+  type = type || pendingStart || 'distance';
   pendingStart = type;
-  if (!calib && !SIM) { openCalib(); return; }
-  showScreen('setup');
-  renderSetup(type);
-}
-
-async function startSession(){
-  const type = pendingStart || 'near';
   const distM = type === 'distance' ? (settings.distanceM || 2) : settings.nearDistance / 100;
   session = {
     type, distM,
@@ -1389,17 +1220,31 @@ async function startSession(){
   showScreen('test');
   $('#answerbar').hidden = false;
   await requestWakeLock();
+
+  /* 权限顺序：先麦克风，600ms 后再要摄像头。Android 上连着弹两个权限框时，
+     第二个经常被忽略或者直接拒；不能同时要。任一被拒都静默降级，不阻塞测试。 */
   if (SIM == null) {
-    if (settings.voiceAnswer) startVoiceAnswer();
-    if (settings.gestureAnswer) startGestureTestAnswer();
+    if (settings.voiceAnswer) {
+      startVoiceAnswer();
+      await new Promise(r => setTimeout(r, 600));
+    }
+    // 近距是手持 40 厘米，手指就在镜头前，手势会自己触发自己，所以不开摄像头
+    if (settings.gestureAnswer && type === 'distance') startGestureTestAnswer();
+    if (!settings.voiceAnswer && !settings.gestureAnswer) {
+      toast('现在只能用按键作答，请家人在旁边帮忙按方向键', 6000);
+    }
   }
 
   for (let i = 0; i < session.eyes.length; i++) {
     session.eyeIdx = i;
     const eye = session.eyes[i];
     updateHud();
-    await countdown(eye.label + ' 测试', eye.cover + '，看清 E 的开口方向');
-    speak(`${eye.label}，${eye.cover}。看清 E 的开口方向，看不清就猜一个。`);
+    // 说明页删掉后，距离和遮眼这两件事只在这里说一次，所以必须念全
+    const distHint = session.type === 'distance'
+      ? `站到 ${session.distM} 米外，${eye.cover}`
+      : `拿在 ${Math.round(session.distM * 100)} 厘米处，${eye.cover}`;
+    await countdown(eye.label, distHint);
+    speak(`${eye.label}。${distHint}。看清 E 的开口方向，看不清就猜一个。`);
 
     const raw = await runEye();
     if (!session || session.aborted) return;
@@ -1438,95 +1283,73 @@ function finishSession(){
 
 /* =====================================================================
    12. 结果
+   老人视角只看两件事：数字是多少、要不要去医院。术语全部收进「更多数据」。
    ===================================================================== */
-function tierOf(logMAR, worse, atCap){
-  if (atCap) return 'limit';
-  if (worse) return 'refer';
-  if (logMAR <= 0.2) return 'good';
-  if (logMAR <= 0.4) return 'watch';
-  return 'refer';
-}
-function tierLabel(tier){
-  return tier === 'good' ? '正常范围'
-       : tier === 'watch' ? '略低于正常'
-       : tier === 'limit' ? '受屏幕限制'
-       : '明显下降';
-}
 function adviceFor(type, results){
   const vals = Object.values(results);
   const anyWorse = vals.some(v => v.worse);
   const capVals = vals.filter(v => v.atCap);
   const isNear = type === 'near';
 
+  // 受屏幕限制：这句必须常驻主区、不许折叠（红线：不能把屏幕上限当真实视力报）
   if (capVals.length) {
     const capText = [...new Set(capVals.map(v => v.decimal))].join(' / ');
-    return { tier:'limit', title:`这台屏幕只能测到 ${capText}，不能代表实际视力`,
-      speech:'这次结果受屏幕分辨率限制，不能代表实际视力。',
-      body:`你全部答对也只能停在这里：这台设备在当前距离最高只能显示到小数视力 <strong>${capText}</strong>，` +
-           `再小的视标受屏幕像素密度限制已经画不准了。<strong>实际视力可能比这个数好</strong>。` +
-           `${isNear ? '近距测试请换<strong>手机 / 平板</strong>（PPI 更高）或 4K 屏' : '请换更高分辨率的屏幕'}；远距 2 米测试一般不受影响。` };
+    return { tier:'limit',
+      title:`这台屏幕最多只能测到 ${capText}`,
+      speech:`这台屏幕最多只能测到 ${capText}，你的眼睛可能比这更好。`,
+      body:`不是你的视力只有 ${capText}，是屏幕画不出更小的 E 了，你的眼睛可能比这个数好。` +
+           (isNear ? '想看真实的近视力，换手机或平板再测一次。'
+                   : '想看真实的远视力，换更高分辨率的屏幕，或者退得更远再测。') };
   }
 
   const worst = vals.reduce((m, v) => Math.max(m, v.worse ? 1.1 : v.logMAR), -1);
   const tier = anyWorse ? 'refer' : (worst <= 0.2 ? 'good' : worst <= 0.4 ? 'watch' : 'refer');
 
   if (tier === 'good') {
-    return { tier, title:'视力看起来不错', speech:'视力看起来不错，继续保持定期检查。',
-      body:`测得的最好结果是小数视力 ${bestText(vals)}（logMAR ${bestLog(vals).toFixed(1)}），在正常范围内。` +
-           `即使看得清，也建议每 1–2 年到眼科检查一次，很多眼病早期没有感觉。` };
+    return { tier, title:'视力正常', speech:'视力正常，建议每一两年查一次眼睛。',
+      body:'建议每 1–2 年查一次眼睛，很多眼病早期没有感觉。' };
   }
   if (tier === 'watch') {
-    return { tier, title:'比正常稍差一点，建议近期检查', speech:'比正常稍差，建议近期到眼科检查。',
-      body: (isNear
-        ? `近距离视力偏低（小数视力 ${bestText(vals)}）。老年人最常见的原因是<strong>老花眼</strong>，配上合适的老花镜通常就能改善。`
-        : `远距离视力偏低（小数视力 ${bestText(vals)}）。可能是近视/远视没矫正、白内障、眼底问题等。`) +
-        `建议 1–2 周内到<strong>医院眼科或正规眼镜店</strong>验光检查；如果正在戴眼镜，请戴着再测一次确认。` };
+    return { tier, title:'比正常低一些', speech:'视力比正常低一些，建议这两周去查一下眼睛。',
+      body:(isNear ? '常见原因是老花，配一副合适的老花镜通常就能改善。'
+                   : '可能是近视、远视没配眼镜，也可能是白内障等。') +
+           '建议这两周去医院眼科查一次；平时戴眼镜的话，戴着再测一遍更准。' };
   }
-  return { tier, title:'视力明显下降，请尽快就医', speech:'视力明显下降，请尽快到眼科检查。',
-    body: (anyWorse
-      ? '有眼睛<strong>看不清屏幕上最大的 E</strong>（低于 0.1），这属于明显下降。'
-      : `测得的视力为小数视力 ${bestText(vals)}，低于一般水平。`) +
-      `请尽快到<strong>医院眼科</strong>做详细检查。视力突然下降、看东西变形、眼前有黑影飘动，更要马上就诊。` };
+  return { tier, title:'视力下降明显', speech:'视力下降明显，请尽快去医院眼科。',
+    body: (anyWorse ? '有眼睛看不清屏幕上最大的 E。' : '') +
+          '请尽快去医院眼科检查；如果是突然变差的，更要马上去。' };
 }
-function bestLog(vals){ return Math.min(...vals.map(v => v.worse ? 1.0 : v.logMAR)); }
-function bestText(vals){
-  const v = vals.filter(x => !x.worse).sort((a,b) => a.logMAR - b.logMAR)[0];
-  return v ? v.decimal : '<0.1';
-}
-
 function renderResult(type, results){
-  $('#resultTitle').textContent = type === 'distance' ? '远距离视力结果' : '近距离视力结果';
-  const eyes = eyesFor(type);
-  $('#resultGrid').innerHTML = eyes.map(e => {
-    const r = results[e.key];
-    if (!r) return '';
-    const tier = tierOf(r.logMAR, r.worse, r.atCap);
-    const big = r.worse ? '<0.1' : r.atCap ? `≥${r.decimal}` : r.decimal;
-    const sub = r.worse ? 'logMAR ≥ 1.0 · 低于 6/60'
-              : r.atCap ? `本机可测上限 · logMAR ${r.logMAR.toFixed(1)} · ${r.snellen}`
-              : `logMAR ${r.logMAR.toFixed(1)} · ${r.snellen}`;
-    const note = r.atCap
-      ? `<div class="res-note">不是你的视力只有 ${r.decimal}，而是这块屏幕在当前距离最高只能显示到这里；实际视力可能更好。</div>`
-      : '';
-    return `<div class="res-card">
-      <div class="res-eye">${e.label}</div>
-      <div class="res-big">${big}</div>
-      <div class="res-sub">小数视力 <strong>${big}</strong> · ${sub}</div>
-      <div class="pill ${tier}">${tierLabel(tier)}</div>
-      ${note}
-    </div>`;
-  }).join('');
+  const shown = eyesFor(type).map(eye => ({ eye, r: results[eye.key] })).filter(x => x.r);
+
+  // 主区只留一行数字：右眼 0.63 · 左眼 0.50
+  $('#resultLine').textContent = shown.map(({ eye, r }) =>
+    `${eye.label} ${r.worse ? '<0.1' : r.atCap ? '≥' + r.decimal : r.decimal}`).join(' · ');
 
   const adv = adviceFor(type, results);
   const box = $('#resultAdvice');
   box.className = 'advice ' + adv.tier;
-  box.innerHTML = `<h3 style="margin-top:0">${adv.title}</h3><div>${adv.body}</div>`;
+  box.innerHTML = `<div style="font-weight:800;font-size:1.22em;margin-bottom:4px">${adv.title}</div><div>${adv.body}</div>`;
+
+  // 给医生和老师看的原始数据，默认收起；老人不点开也完全够用
+  $('#resultMoreBody').innerHTML = shown.map(({ eye, r }) => {
+    const line = r.worse ? 'logMAR ≥ 1.0 · 低于 6/60'
+      : `logMAR ${r.logMAR.toFixed(1)} · Snellen ${r.snellen}`;
+    return `<p>${eye.label}：${line}${r.atCap ? '（本机上限）' : ''}</p>`;
+  }).join('') + '<p class="muted small">分级依据：logMAR ≤0.2 正常，0.3–0.4 偏低，≥0.5 明显下降。</p>';
+
+  $('#resultMore').open = false;
 }
 
 /* =====================================================================
    13. 设置 / 历史
    ===================================================================== */
 function renderSettings(){
+  const hc = $('#historyCount');
+  if (hc) {
+    const n = store.get('vs.history', []).length;
+    hc.textContent = n ? `本机已保存 ${n} 次` : '还没有记录';
+  }
   $('#swVoice').setAttribute('aria-checked', String(!!settings.voice));
   $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
   const swVA = $('#swVoiceAnswer');
@@ -1621,19 +1444,18 @@ function toggleFullscreen(){
    15. 事件绑定
    ===================================================================== */
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-go],[data-action],[data-start],[data-calib],[data-ans],[data-near],[data-dist]');
+  const t = e.target.closest('[data-go],[data-action],[data-start],[data-ans]');
   if (!t) return;
 
   /* ---- 导航 ---- */
   if (t.dataset.go) {
     const go = t.dataset.go;
-    if (go === 'home') { pendingStart = null; }
-    if (go === 'calib') { openCalib(); return; }
+    if (go === 'calib') { openCalib(false); return; }
     if (go === 'voiceTest') { showScreen('voiceTest'); voiceStatus('点「开始听」加载离线语音模型', false); return; }
     if (go === 'gestureTest') { showScreen('gestureTest'); gestureStatus('点「开始摄像头」加载手势模型', false); return; }
     if (go === 'settings') { renderSettings(); }
     if (go === 'history') { renderHistory(); }
-    if (go === 'home') { showScreen('home'); return; }
+    if (go === 'welcome') { pendingStart = null; }
     showScreen(go);
     return;
   }
@@ -1641,61 +1463,22 @@ document.addEventListener('click', (e) => {
   /* ---- 动作 ---- */
   if (t.dataset.action) {
     switch (t.dataset.action) {
-      case 'welcome-start':
-        if (!calib && !SIM) { openCalib(); } else { showScreen('home'); }
-        break;
+      case 'welcome-start': startFlow('distance'); break;
       case 'calib-done': finishCalib(); break;
-      case 'set-dist': {
-        const v = parseFloat($('#customDist').value);
-        if (!(v >= 1 && v <= 5)) { toast('请输入 1–5 米之间的距离'); break; }
-        settings.distanceM = Math.round(v * 10) / 10;
-        store.set('vs.settings', settings);
-        renderSetup('distance');
-        toast(`测试距离已设为 ${settings.distanceM} 米`);
-        break;
-      }
-      case 'setup-start': startSession(); break;
+      case 'calib-swap': swapCalibObj(); break;
       case 'voice-test-toggle': toggleVoiceTest(); break;
       case 'gesture-test-toggle': toggleGestureTest(); break;
-      case 'result-again': beginFlow(session ? session.type : 'near'); break;
+      case 'result-again': startFlow(session ? session.type : 'distance'); break;
       case 'fullscreen': toggleFullscreen(); break;
       case 'clear-history':
-        if (confirm('确定要清除全部历史记录吗？')) { store.set('vs.history', []); renderHistory(); }
+        if (confirm('确定要清除全部历史记录吗？')) { store.set('vs.history', []); renderHistory(); renderSettings(); }
         break;
     }
     return;
   }
 
-  /* ---- 选择测试项目 ---- */
-  if (t.dataset.start) { beginFlow(t.dataset.start); return; }
-
-  /* ---- 测试距离（仅远距） ---- */
-  if (t.dataset.dist) {
-    settings.distanceM = Number(t.dataset.dist);
-    store.set('vs.settings', settings);
-    renderSetup('distance');
-    beep(660, .05);
-    return;
-  }
-
-  /* ---- 近距测试距离（在测试说明页选择） ---- */
-  if (t.dataset.near) {
-    settings.nearDistance = Number(t.dataset.near);
-    store.set('vs.settings', settings);
-    renderSetup('near');
-    beep(660, .05);
-    return;
-  }
-
-  /* ---- 校准加减 ---- */
-  if (t.dataset.calib) {
-    const step = Number(t.dataset.calib) > 0 ? 1 : -1;
-    const delta = Math.max(2, Math.round(calibLenPx * 0.012)) * step;
-    calibLenPx = clamp(calibLenPx + delta, 80, calibMaxLen());
-    paintCalib();
-    beep(step > 0 ? 700 : 560, .04);
-    return;
-  }
+  /* ---- 设置页进来的近距测试 ---- */
+  if (t.dataset.start) { startFlow(t.dataset.start); return; }
 
   /* ---- 作答按钮 ---- */
   if (t.dataset.ans) { answer(t.dataset.ans); return; }
@@ -1715,54 +1498,14 @@ stageEl.addEventListener('pointerup', (e) => {
 });
 stageEl.addEventListener('pointercancel', () => { swipeStart = null; });
 
-/* 校准：拖动两端黄色手柄 / 滑条 */
-const calibStageNode = $('#calibStage');
-function calibSetFromX(clientX){
-  const st = calibStageEl();
-  if (!st) return;
-  const r = st.getBoundingClientRect();
-  const center = r.left + r.width / 2;
-  calibLenPx = clamp(Math.abs(clientX - center) * 2, 80, calibMaxLen());
-  paintCalib();
-}
-['#hLeft', '#hRight'].forEach(sel => {
-  const el = $(sel);
-  if (!el) return;
-  el.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    calibDragging = true;
-    el.setPointerCapture?.(e.pointerId);
-  });
+/* 校准：两个大按钮，按住连续变化（1.5%/60ms），松手停 */
+$$('[data-calib]').forEach(btn => {
+  const dir = Number(btn.dataset.calib) > 0 ? 1 : -1;
+  btn.addEventListener('pointerdown', (e) => { e.preventDefault(); calibHoldStart(dir); });
+  btn.addEventListener('contextmenu', (e) => e.preventDefault());
 });
-if (calibStageNode) {
-  calibStageNode.addEventListener('pointermove', (e) => {
-    if (calibDragging) calibSetFromX(e.clientX);
-  });
-  calibStageNode.addEventListener('pointerdown', (e) => {
-    if (e.target.classList.contains('calib-handle')) return;
-    calibSetFromX(e.clientX);
-  });
-}
-window.addEventListener('pointerup', () => { calibDragging = false; });
-const calibRangeNode = $('#calibRange');
-if (calibRangeNode) {
-  calibRangeNode.addEventListener('input', (e) => {
-    calibLenPx = Number(e.target.value);
-    paintCalib();
-  });
-}
-const calibObjSelect = $('#calibObjSelect');
-if (calibObjSelect) {
-  calibObjSelect.addEventListener('change', (e) => {
-    selectCalibObj(e.target.value);
-    beep(660, .05);
-  });
-}
-const calibCustomMm = $('#calibCustomMm');
-if (calibCustomMm) {
-  calibCustomMm.addEventListener('input', (e) => updateCustomLen(e.target.value));
-  calibCustomMm.addEventListener('change', (e) => updateCustomLen(e.target.value));
-}
+['pointerup', 'pointercancel'].forEach(ev => window.addEventListener(ev, stopCalibHold));
+window.addEventListener('blur', stopCalibHold);
 
 /* 键盘作答（一体机外接键盘） */
 window.addEventListener('keydown', (e) => {
@@ -1797,7 +1540,7 @@ $('#btnPause').addEventListener('click', () => {
     hideOverlay();
     $('#answerbar').hidden = true;
     releaseWakeLock();
-    showScreen('home');
+    showScreen('welcome');
   };
 });
 
@@ -1862,6 +1605,24 @@ window.addEventListener('unhandledrejection', (e) => {
   window.__vsErrors.push('unhandledrejection: ' + String(e.reason));
 });
 
+/* 后台预加载两个离线模型：只下载文件，不申请麦克风 / 摄像头（下载 ≠ 授权）。
+   v0.10 决定：模型默认预加载，用不用是另一回事。省流量模式或 2G/3G 跳过，
+   因为 44MB + 17MB 对老人的手机是真实成本。 */
+function preloadAiModels(){
+  if (SIM != null) return;
+  const conn = navigator.connection || {};
+  if (conn.saveData) return;
+  if (/2g|3g/i.test(String(conn.effectiveType || ''))) return;
+  const kick = () => {
+    try { window.VoiceEngine && window.VoiceEngine.load(() => {}).catch(() => {}); } catch (e) {}
+    ensureGestureEngine()
+      .then(() => window.GestureEngine && window.GestureEngine.load(() => {}))
+      .catch(() => {});
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(kick, { timeout: 6000 });
+  else setTimeout(kick, 3000);
+}
+
 (function boot(){
   // 校验校准值是否合理
   if (calib && !(calib.mmPerCssPx > 0.05 && calib.mmPerCssPx < 5)) calib = null;
@@ -1871,6 +1632,7 @@ window.addEventListener('unhandledrejection', (e) => {
 
   showScreen('welcome');
   renderSettings();
+  preloadAiModels();
 
   if (DEBUG) {
     window.__vs = {
@@ -1879,7 +1641,7 @@ window.addEventListener('unhandledrejection', (e) => {
       get session(){ return session; },
       LEVELS, DECIMAL, SNELLEN,
       optotypeHeightMm, maxRenderableIndex,
-      go: showScreen, beginFlow,
+      go: showScreen, startFlow,
     };
   }
 })();
@@ -1892,4 +1654,3 @@ window.addEventListener('unhandledrejection', (e) => {
 </script>
 </body>
 </html>
-
