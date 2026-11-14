@@ -87,6 +87,16 @@ li{margin:.35em 0}
 }
 .gear:active{opacity:.75}
 .hero .lead{color:var(--ink);font-size:clamp(19px,1.9vw+12px,28px);line-height:1.5;margin:.5em 0 0}
+/* 首屏的两个入口：远 / 近。老人自己选，但每个按钮自己写清距离，不再多问一句 */
+.choices{display:flex;flex-direction:column;gap:14px}
+.choice{
+  display:flex;flex-direction:column;gap:6px;min-height:116px;padding:18px 22px;
+  border-radius:24px;border:2px solid var(--line);background:#fff;box-shadow:var(--shadow);
+  text-align:left;cursor:pointer;
+}
+.choice:active{border-color:var(--accent)}
+.choice .t{font-size:1.35em;font-weight:800;color:var(--ink)}
+.choice .s{font-size:.9em;color:var(--muted)}
 
 /* ---------- 校准 ---------- */
 /* ---------- 校准（竖放标尺） ---------- */
@@ -258,6 +268,10 @@ li{margin:.35em 0}
   .hero h1{font-size:clamp(44px,3.6vw,68px)}
   .hero .lead{font-size:clamp(24px,1.7vw,34px)}
   .btn.big{min-height:150px;font-size:1.9em}
+  .choices{flex-direction:row}
+  .choice{flex:1;min-height:190px;justify-content:center}
+  .choice .t{font-size:1.7em}
+  .choice .s{font-size:1.05em}
   #hud{height:64px}
   #stage{inset:64px 24px 132px}
   #answerbar{padding:14px 40px 22px}
@@ -289,10 +303,17 @@ li{margin:.35em 0}
     <div class="hero">
       <div class="logo">E</div>
       <h1>视力筛查</h1>
-      <p class="lead">坐好，看屏幕上的 E<br>看不清也请猜一个</p>
+      <p class="lead">看不清也请猜一个</p>
     </div>
-    <div class="row" style="margin-top:auto">
-      <button class="btn big" data-action="welcome-start">开始</button>
+    <div class="choices">
+      <button class="choice" data-start="distance">
+        <span class="t">看远处的 E</span>
+        <span class="s">站在 2 米外 · 先遮左眼，再遮右眼</span>
+      </button>
+      <button class="choice" data-start="near">
+        <span class="t">看近处的 E</span>
+        <span class="s">拿在 40 厘米处 · 两只眼一起看</span>
+      </button>
     </div>
     <p class="muted small" style="text-align:center;margin:0" data-build></p>
   </div>
@@ -420,10 +441,6 @@ li{margin:.35em 0}
     <h2 style="margin:0 0 4px">设置</h2>
     <div class="card">
       <div class="set-row">
-        <div><div style="font-weight:700">近距离视力（40 厘米）</div><div class="muted small">拿在手上看，双眼一起测</div></div>
-        <button class="btn secondary" data-start="near" style="flex:none;min-height:52px">开始</button>
-      </div>
-      <div class="set-row">
         <div><div style="font-weight:700">历史记录</div><div class="muted small" id="historyCount">—</div></div>
         <button class="btn secondary" data-go="history" style="flex:none;min-height:52px">查看</button>
       </div>
@@ -502,7 +519,7 @@ const PER_LEVEL = 5, PASS_NEED = 4;
 // 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
 const ANSWER_GAP_MS = 1000;
 // 构建号：改版本只改这一行（欢迎页 / 设置页 / 手势试音页 / 控制台都读它）
-const BUILD = 'v0.10.0 · 2026-11-14';
+const BUILD = 'v0.10.1 · 2026-11-14';
 // 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
 const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
 const DIRS = ['up','right','down','left'];
@@ -804,7 +821,7 @@ let calibLenPx = 300;
 // 未校准时的起步猜测：0.19 mm/CSS px ≈ 134 ppi，通常一两次调整就能对准
 const DEFAULT_MM_PER_CSS = 0.19;
 let calibHoldTimer = null;
-let calibPendingStart = false;      // 从「开始」进来的校准，做完要继续往下测
+let calibPendingType = null;        // 首屏点了「远」或「近」进来的校准，做完继续测那一项
 
 function objOf(id){ return CALIB_OBJECTS.find(o => o.id === id) || CALIB_OBJECTS[0]; }
 function calibObjMm(){ return objOf(calibObj).mm; }
@@ -866,8 +883,8 @@ function paintCalib(){
   }
 }
 
-function openCalib(continueAfter){
-  calibPendingStart = !!continueAfter;
+function openCalib(pendingType){
+  calibPendingType = pendingType || null;
   renderCalibHead();
   calibLenPx = calibObjMm() / (calib ? calib.mmPerCssPx : DEFAULT_MM_PER_CSS);
   showScreen('calib');
@@ -882,8 +899,9 @@ function finishCalib(){
   store.set('vs.calibObj', calibObj);
   beep(660, .08);
   speak('好了');
-  if (calibPendingStart) { calibPendingStart = false; startFlow('distance'); }
-  else showScreen('settings');
+  const t = calibPendingType;
+  calibPendingType = null;
+  if (t) startFlow(t); else showScreen('settings');
 }
 
 /* =====================================================================
@@ -1192,11 +1210,12 @@ function describeResult(r){
 /* =====================================================================
    11. 开始 / 结束会话
    ===================================================================== */
-/* 老人端流程：一个按钮进来 → 没校准先量屏幕 → 3 秒倒计时 → 测试。
-   没有「选项目 / 选距离 / 读说明」的中间屏；近距只从设置页进。 */
+/* 老人端流程：首屏选「看远处 / 看近处」→ 没校准先量屏幕 → 3 秒倒计时 → 测试。
+   中间没有「选距离 / 读说明」的屏；距离写在按钮上，不同尺寸的屏幕各自固定。 */
 function startFlow(type){
-  if (!calib && !SIM) { openCalib(true); return; }
-  startSession(type || 'distance');
+  const t = type || 'distance';
+  if (!calib && !SIM) { openCalib(t); return; }
+  startSession(t);
 }
 
 async function startSession(type){
@@ -1450,7 +1469,7 @@ document.addEventListener('click', (e) => {
   /* ---- 导航 ---- */
   if (t.dataset.go) {
     const go = t.dataset.go;
-    if (go === 'calib') { openCalib(false); return; }
+    if (go === 'calib') { openCalib(); return; }
     if (go === 'voiceTest') { showScreen('voiceTest'); voiceStatus('点「开始听」加载离线语音模型', false); return; }
     if (go === 'gestureTest') { showScreen('gestureTest'); gestureStatus('点「开始摄像头」加载手势模型', false); return; }
     if (go === 'settings') { renderSettings(); }
@@ -1463,7 +1482,6 @@ document.addEventListener('click', (e) => {
   /* ---- 动作 ---- */
   if (t.dataset.action) {
     switch (t.dataset.action) {
-      case 'welcome-start': startFlow('distance'); break;
       case 'calib-done': finishCalib(); break;
       case 'calib-swap': swapCalibObj(); break;
       case 'voice-test-toggle': toggleVoiceTest(); break;
