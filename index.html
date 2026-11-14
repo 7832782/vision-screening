@@ -125,6 +125,10 @@ li{margin:.35em 0}
   padding:16px 4px;border-bottom:1px solid var(--line);
 }
 .set-row:last-child{border-bottom:none}
+.set-select{
+  flex:none;min-height:56px;min-width:152px;padding:0 12px;border-radius:14px;
+  border:2px solid var(--line);background:#fff;color:var(--ink);font-size:.95em;font-family:inherit;
+}
 .switch{
   position:relative;width:78px;height:44px;border-radius:22px;background:#ccc;
   border:none;cursor:pointer;transition:background .18s;flex:none;
@@ -308,11 +312,11 @@ li{margin:.35em 0}
     <div class="choices">
       <button class="choice" data-start="distance">
         <span class="t">看远处的 E</span>
-        <span class="s">站在 2 米外 · 先遮左眼，再遮右眼</span>
+        <span class="s" id="farHint">站在 2 米外 · 先遮左眼，再遮右眼</span>
       </button>
       <button class="choice" data-start="near">
         <span class="t">看近处的 E</span>
-        <span class="s">拿在 40 厘米处 · 两只眼一起看</span>
+        <span class="s" id="nearHint">拿在 40 厘米处 · 两只眼一起看</span>
       </button>
     </div>
     <p class="muted small" style="text-align:center;margin:0" data-build></p>
@@ -467,6 +471,27 @@ li{margin:.35em 0}
         <button class="switch" id="swBeep" role="switch" aria-checked="true"></button>
       </div>
       <div class="set-row">
+        <div><div style="font-weight:700">远距测试距离</div><div class="muted small">房间放不下就选小一点，越小越容易低估视力</div></div>
+        <select id="selDistM" class="set-select" aria-label="远距测试距离">
+          <option value="1">1 米</option>
+          <option value="1.5">1.5 米</option>
+          <option value="2">2 米（标准）</option>
+          <option value="2.5">2.5 米</option>
+          <option value="3">3 米</option>
+          <option value="4">4 米</option>
+          <option value="5">5 米</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div><div style="font-weight:700">近距测试距离</div><div class="muted small">拿在手上，大约一臂</div></div>
+        <select id="selNearCm" class="set-select" aria-label="近距测试距离">
+          <option value="33">33 厘米</option>
+          <option value="40">40 厘米（标准）</option>
+          <option value="45">45 厘米</option>
+          <option value="50">50 厘米</option>
+        </select>
+      </div>
+      <div class="set-row">
         <div><div style="font-weight:700">本机可测范围</div><div class="muted small" id="capInfo">—</div></div>
       </div>
       <div class="set-row">
@@ -519,7 +544,7 @@ const PER_LEVEL = 5, PASS_NEED = 4;
 // 连续语音/手势作答后，下一题前的硬缓冲（毫秒）
 const ANSWER_GAP_MS = 1000;
 // 构建号：改版本只改这一行（欢迎页 / 设置页 / 手势试音页 / 控制台都读它）
-const BUILD = 'v0.10.1 · 2026-11-14';
+const BUILD = 'v0.10.2 · 2026-11-14';
 // 视标 E 的 5 个笔画（viewBox 0 0 5 5，开口朝右）
 const E_PATH = 'M0 0H5V1H1V2H4V3H1V4H5V5H0Z';
 const DIRS = ['up','right','down','left'];
@@ -1247,8 +1272,9 @@ async function startSession(type){
       startVoiceAnswer();
       await new Promise(r => setTimeout(r, 600));
     }
-    // 近距是手持 40 厘米，手指就在镜头前，手势会自己触发自己，所以不开摄像头
-    if (settings.gestureAnswer && type === 'distance') startGestureTestAnswer();
+    // 近距是手持 40 厘米，手在胸前比划时离镜头较近，识别率比远距低；
+    // 但这是「可用的功能之一」，不能因为不好用就砍掉——识别不到还有说话、按键、滑动
+    if (settings.gestureAnswer) startGestureTestAnswer();
     if (!settings.voiceAnswer && !settings.gestureAnswer) {
       toast('现在只能用按键作答，请家人在旁边帮忙按方向键', 6000);
     }
@@ -1363,6 +1389,24 @@ function renderResult(type, results){
 /* =====================================================================
    13. 设置 / 历史
    ===================================================================== */
+/* 距离改成下拉框以后，首屏两个按钮的副标题要跟着变。
+   settings 里存过非标准值（比如老的 2.4 米）时，临时补一个选项，别把它悄悄改掉。 */
+function syncDistSelect(sel, value, unit){
+  if (!sel) return;
+  const v = String(value);
+  if (![...sel.options].some(o => o.value === v)) {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = `${value} ${unit}`;
+    sel.appendChild(o);
+  }
+  sel.value = v;
+}
+function renderWelcomeHints(){
+  const far = $('#farHint'), near = $('#nearHint');
+  if (far) far.textContent = `站在 ${settings.distanceM || 2} 米外 · 先遮左眼，再遮右眼`;
+  if (near) near.textContent = `拿在 ${settings.nearDistance} 厘米处 · 两只眼一起看`;
+}
+
 function renderSettings(){
   const hc = $('#historyCount');
   if (hc) {
@@ -1371,6 +1415,8 @@ function renderSettings(){
   }
   $('#swVoice').setAttribute('aria-checked', String(!!settings.voice));
   $('#swBeep').setAttribute('aria-checked', String(!!settings.beep));
+  syncDistSelect($('#selDistM'), settings.distanceM || 2, '米');
+  syncDistSelect($('#selNearCm'), settings.nearDistance, '厘米');
   const swVA = $('#swVoiceAnswer');
   if (swVA) swVA.setAttribute('aria-checked', String(!!settings.voiceAnswer));
   const swGA = $('#swGestureAnswer');
@@ -1611,6 +1657,20 @@ $('#swGestureAnswer')?.addEventListener('click', async () => {
   toast(settings.gestureAnswer ? '手势作答已开启：测试时先放下手，再用食指指方向' : '手势作答已关闭');
 });
 
+/* 测试距离（设置者用，老人端只看到首屏按钮上的数字跟着变） */
+$('#selDistM')?.addEventListener('change', (e) => {
+  settings.distanceM = Number(e.target.value) || 2;
+  store.set('vs.settings', settings);
+  renderWelcomeHints();
+  toast(`远距测试距离已设为 ${settings.distanceM} 米`);
+});
+$('#selNearCm')?.addEventListener('change', (e) => {
+  settings.nearDistance = Number(e.target.value) || 40;
+  store.set('vs.settings', settings);
+  renderWelcomeHints();
+  toast(`近距测试距离已设为 ${settings.nearDistance} 厘米`);
+});
+
 /* =====================================================================
    16. 启动
    ===================================================================== */
@@ -1649,6 +1709,7 @@ function preloadAiModels(){
   console.info('[vision-screening] ' + BUILD);
 
   showScreen('welcome');
+  renderWelcomeHints();
   renderSettings();
   preloadAiModels();
 
